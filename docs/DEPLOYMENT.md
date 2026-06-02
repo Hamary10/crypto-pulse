@@ -388,6 +388,67 @@ GitHub 和 Render。
 - 如果 Render 无法部署，先检查最近一次改动是否涉及依赖或环境变量。
 - 如果频道仍不发消息，检查 GitHub Secrets 和频道管理员权限。
 
+## 开放前清理测试数据
+
+### 当前数据库文件判断
+
+当前本地仓库没有发现 SQLite `.db` 文件。线上环境按部署平台分别判断：
+
+- Bot2 在 Render 运行，默认数据库文件为 `assistant/crypto_pulse.db` 或环境变量 `DATABASE_PATH` 指向的路径。
+- Bot1 在 GitHub Actions 运行，默认数据库文件为 `broadcaster/crypto_pulse.db`，每次 workflow 结束后通常不会长期保留。
+- Bot1 和 Bot2 当前默认不共享数据库。
+
+当前实际创建的 SQLite 表：
+
+- `users`
+- `command_logs`
+- `coin_query_stats`
+- `price_snapshots`
+
+说明：`channel_posts` 目前没有在代码中创建。如果未来新增该表，开放前清理时再加入清理列表。
+
+### 清理方案
+
+一、我要做什么
+
+开放前清除测试期间产生的用户、命令、币种查询和价格快照数据，但保留代码、文档、环境变量和数据库表结构。
+
+二、在哪里操作
+
+Render Shell、Windows 终端或能访问 SQLite 数据库文件的服务器终端。
+
+三、具体步骤
+
+1. 先确认数据库文件路径。默认是 `crypto_pulse.db`，如果配置了 `DATABASE_PATH`，以 `DATABASE_PATH` 为准。
+2. 先备份数据库文件，不要直接删除原文件。
+3. 执行清理命令，只清空表数据，不删除表结构。
+4. 清理后检查表是否还存在。
+5. 清理后检查每张表的数据量是否为 0。
+
+本地 Windows PowerShell 示例：
+
+```powershell
+Copy-Item crypto_pulse.db crypto_pulse.backup-before-open.db
+python -c "import sqlite3; db='crypto_pulse.db'; conn=sqlite3.connect(db); cur=conn.cursor(); [cur.execute(f'DELETE FROM {table}') for table in ['users','command_logs','coin_query_stats','price_snapshots']]; conn.commit(); conn.close()"
+python -c "import sqlite3; db='crypto_pulse.db'; conn=sqlite3.connect(db); cur=conn.cursor(); print(cur.execute(\"SELECT name FROM sqlite_master WHERE type='table'\").fetchall()); print({t: cur.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0] for t in ['users','command_logs','coin_query_stats','price_snapshots']}); conn.close()"
+```
+
+如果未来新增 `channel_posts` 表，清理命令中的表名列表增加 `channel_posts`。
+
+四、怎么判断成功
+
+- 备份文件存在，例如 `crypto_pulse.backup-before-open.db`。
+- `users`、`command_logs`、`coin_query_stats`、`price_snapshots` 表仍然存在。
+- 每张表的数量都是 0。
+- Bot 启动后不会报数据库表不存在。
+
+五、如果失败怎么办
+
+- 如果提示找不到 `crypto_pulse.db`，先检查 `DATABASE_PATH` 是否配置了其他路径。
+- 如果提示某张表不存在，说明当前数据库不是最新结构，先启动 Bot 让它自动初始化数据库。
+- 如果清理后 Bot 报错，先停止继续操作，用备份文件恢复原数据库。
+- 如果不确定线上 Render 是否能直接操作数据库，不要强行清理，把 Render 日志和 `DATABASE_PATH` 配置发给 AI Agent 判断。
+
 ## 部署注意事项
 
 - 不要提交 Telegram Bot Token。

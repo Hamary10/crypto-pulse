@@ -35,7 +35,7 @@ class BroadcasterFormatterTests(unittest.TestCase):
             {"id": "dogecoin", "symbol": "DOGE"},
             {"id": "cardano", "symbol": "ADA"},
             {"id": "polkadot", "symbol": "DOT"},
-            {"id": "polygon-ecosystem-token", "symbol": "POL"},
+            {"id": "polygon-ecosystem-token", "symbol": "POL", "display_symbol": "POL（原 MATIC）"},
         ]
 
     def test_usdt_and_pol_are_in_main_coin_list(self):
@@ -49,29 +49,34 @@ class BroadcasterFormatterTests(unittest.TestCase):
         self.assertNotIn("matic-network", coin_ids)
         self.assertNotIn("MATIC", symbols)
 
-    def test_usdt_rates_format_cny_usd_mmk(self):
+    def test_usdt_rate_only_formats_cny(self):
         text = self.formatters.format_price_broadcast(
-            [{"id": "tether", "symbol": "USDT"}],
+            [{"id": "tether", "symbol": "USDT"}, {"id": "polygon-ecosystem-token", "symbol": "POL", "display_symbol": "POL（原 MATIC）"}],
             {"tether": {"cny": 7.12, "usd": 1.0, "mmk": 3500}},
         )
 
-        self.assertIn("💱 USDT 汇率参考", text)
-        self.assertIn("USDT/CNY: ¥7.12", text)
-        self.assertIn("USDT/USD: $1.0000", text)
-        self.assertIn("USDT/MMK: Ks 3,500", text)
+        self.assertIn("💱 USDT/CNY 参考价：¥7.12", text)
+        self.assertNotIn("USDT/USD", text)
+        self.assertNotIn("USDT/MMK", text)
+
+    def test_pol_display_name_mentions_original_matic(self):
+        text = self.formatters.format_price_broadcast(
+            [{"id": "polygon-ecosystem-token", "symbol": "POL", "display_symbol": "POL（原 MATIC）"}],
+            {"tether": {"cny": 7.12}, "polygon-ecosystem-token": {"cny": 2.1}},
+        )
+
+        self.assertIn("POL（原 MATIC）: ¥2.10", text)
 
     def test_missing_usdt_rate_does_not_break_broadcast(self):
         buffer = StringIO()
         with patch("sys.stdout", buffer):
             text = self.formatters.format_price_broadcast(
                 [{"id": "tether", "symbol": "USDT"}],
-                {"tether": {"cny": 7.12, "usd": 1.0}},
+                {"tether": {"usd": 1.0}},
             )
 
-        self.assertIn("USDT/CNY: ¥7.12", text)
-        self.assertIn("USDT/USD: $1.0000", text)
-        self.assertNotIn("USDT/MMK", text)
-        self.assertIn("Missing USDT rate: mmk", buffer.getvalue())
+        self.assertNotIn("USDT/CNY 参考价", text)
+        self.assertIn("Missing USDT rate: cny", buffer.getvalue())
 
     def test_missing_coin_data_is_logged(self):
         buffer = StringIO()

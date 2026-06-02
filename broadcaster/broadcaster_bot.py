@@ -40,7 +40,7 @@ COINS = [
     {"id": "dogecoin", "symbol": "DOGE", "emoji": "🐕"},
     {"id": "cardano", "symbol": "ADA", "emoji": "🎴"},
     {"id": "polkadot", "symbol": "DOT", "emoji": "🔴"},
-    {"id": "polygon-ecosystem-token", "symbol": "POL", "emoji": "🟣"},
+    {"id": "polygon-ecosystem-token", "symbol": "POL", "display_symbol": "POL（原 MATIC）", "emoji": "🟣"},
 ]
 
 

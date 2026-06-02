@@ -37,7 +37,7 @@ GET https://api.coingecko.com/api/v3/simple/price
 | 参数 | 说明 |
 |---|---|
 | ids | CoinGecko 币种 ID，例如 `bitcoin` |
-| vs_currencies | 计价货币，例如 `usd,cny,mmk` |
+| vs_currencies | 计价货币，例如 `usd,cny` |
 | include_24hr_change | 是否返回 24 小时涨跌幅 |
 
 示例请求：
@@ -111,10 +111,10 @@ GET https://api.coingecko.com/api/v3/search/trending
 
 Bot1 USDT 汇率模块：
 
-- 使用 `tether` 请求 `usd,cny,mmk`。
-- `USDT/CNY`、`USDT/USD`、`USDT/MMK` 只显示 CoinGecko 实际返回的项目。
-- 如果 `mmk` 或其他汇率缺失，不会导致整条频道播报失败。
-- 缺失项会打印日志，例如 `Missing USDT rate: mmk`。
+- 使用 `tether` 请求 `usd,cny`，其中 `usd` 仍用于内部价格快照，频道只展示 `cny`。
+- 频道只显示 `USDT/CNY` 参考价，不显示 `USDT/USD` 和 `USDT/MMK`。
+- 如果 `cny` 缺失，不会导致整条频道播报失败。
+- 缺失项会打印日志，例如 `Missing USDT rate: cny`。
 
 ## 请求限制
 

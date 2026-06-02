@@ -23,7 +23,7 @@
 - 每日榜单仅在北京时间 00:00 的定时任务中发送。
 - 已将 USDT 加入主流币价格播报。
 - 已将 MATIC 替换为 POL，CoinGecko ID 使用 `polygon-ecosystem-token`。
-- 已新增 USDT 汇率参考模块，支持 CNY、USD、MMK。
+- 已新增 USDT/CNY 参考价模块，仅显示 CNY，避免展示争议较大的 USD/MMK 汇率。
 - 已新增缺失币种日志：`Missing coin data: <coin_id>`。
 - 已记录价格快照到 SQLite。
 - 已通过本地语法检查和最小测试。
@@ -141,3 +141,23 @@
 - `docs/PROJECT_STATUS.md`
 - `docs/ROADMAP.md`
 - `docs/CHANGELOG.md`
+
+## 开放前检查清单
+
+公开频道和群组前，开发者必须逐项确认：
+
+1. Bot1 频道价格播报正常。
+2. Bot1 涨幅榜正常。
+3. Bot1 跌幅榜正常。
+4. Bot1 热门榜正常。
+5. Bot2 `/help` 正常。
+6. Bot2 `/price` 正常。
+7. Bot2 `/compare` 正常。
+8. Bot2 `/top` 正常。
+9. Bot2 `/trending` 正常。
+10. Bot2 `/gainers` 正常。
+11. Bot2 `/losers` 正常。
+12. Render 日志无严重错误。
+13. GitHub Actions 最近一次运行成功。
+14. 测试数据已清理。
+15. `stable` 分支和稳定版本 tag 已更新到最新稳定版本。

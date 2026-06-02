@@ -7,22 +7,10 @@ import pytz
 BEIJING_TZ = pytz.timezone("Asia/Shanghai")
 
 
-def _fmt_usd(value: Any) -> str:
-    if value is None:
-        return "N/A"
-    return f"${float(value):,.2f}"
-
-
 def _fmt_cny(value: Any) -> str:
     if value is None:
         return "N/A"
     return f"¥{float(value):,.2f}"
-
-
-def _fmt_mmk(value: Any) -> str:
-    if value is None:
-        return "N/A"
-    return f"Ks {float(value):,.0f}"
 
 
 def _fmt_percent(value: Any) -> str:
@@ -32,23 +20,10 @@ def _fmt_percent(value: Any) -> str:
 
 
 def _format_usdt_rates(tether_data: Dict[str, Any]) -> List[str]:
-    lines = ["💱 USDT 汇率参考"]
     if tether_data.get("cny") is not None:
-        lines.append(f"USDT/CNY: {_fmt_cny(tether_data.get('cny'))}")
-    else:
-        print("Missing USDT rate: cny")
-
-    if tether_data.get("usd") is not None:
-        lines.append(f"USDT/USD: ${float(tether_data.get('usd')):,.4f}")
-    else:
-        print("Missing USDT rate: usd")
-
-    if tether_data.get("mmk") is not None:
-        lines.append(f"USDT/MMK: {_fmt_mmk(tether_data.get('mmk'))}")
-    else:
-        print("Missing USDT rate: mmk")
-
-    return lines
+        return [f"💱 USDT/CNY 参考价：{_fmt_cny(tether_data.get('cny'))}"]
+    print("Missing USDT rate: cny")
+    return []
 
 
 def format_price_broadcast(coins: List[Dict[str, str]], price_data: Dict[str, Any]) -> str:
@@ -71,7 +46,8 @@ def format_price_broadcast(coins: List[Dict[str, str]], price_data: Dict[str, An
             print(f"Missing coin data: {coin_id}")
             continue
 
-        lines.append(f"{coin['symbol']}: {_fmt_cny(data.get('cny'))}")
+        display_symbol = coin.get("display_symbol") or coin["symbol"]
+        lines.append(f"{display_symbol}: {_fmt_cny(data.get('cny'))}")
 
     lines.extend(["", f"⏰ 北京时间: {current_time}", "数据源：CoinGecko", "仅供信息参考，非投资建议。"])
     return "\n".join(lines)
