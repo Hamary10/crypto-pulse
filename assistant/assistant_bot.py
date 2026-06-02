@@ -1,0 +1,230 @@
+"""
+Crypto Pulse - 2号Bot（互动客服）
+部署平台：Render (Webhook模式)
+功能：处理群组指令、记录用户行为、提供 P0 行情榜单
+"""
+
+import os
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import FastAPI, Request
+
+from coingecko_client import (
+    get_gainers,
+    get_losers,
+    get_price,
+    get_prices,
+    get_top_markets,
+    get_trending,
+    market_to_snapshot,
+    is_error,
+    is_rate_limited,
+    symbol_to_coingecko,
+)
+from database import (
+    increment_coin_query,
+    init_database,
+    log_command,
+    record_price_snapshot,
+    record_price_snapshots,
+    upsert_user,
+)
+from formatters import (
+    format_compare,
+    format_help,
+    format_market_cap,
+    format_movers,
+    format_price,
+    format_trending,
+)
+
+
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN_2")
+PORT = int(os.getenv("PORT", 10000))
+
+app = FastAPI()
+init_database()
+print("Assistant bot started; database initialized")
+
+RATE_LIMIT_MESSAGE = "❌ CoinGecko 当前请求过于频繁，请稍后重试。"
+SERVICE_ERROR_MESSAGE = "❌ 行情服务暂时不可用，请稍后重试。"
+
+
+def _list_status(items: List[Dict[str, Any]]) -> Optional[str]:
+    if not items:
+        return None
+    first = items[0]
+    if is_rate_limited(first):
+        return "rate_limited"
+    if is_error(first):
+        return "error"
+    return None
+
+
+def _market_error_message(items: List[Dict[str, Any]], empty_message: str) -> Optional[str]:
+    status = _list_status(items)
+    if status == "rate_limited":
+        return RATE_LIMIT_MESSAGE
+    if status == "error":
+        return SERVICE_ERROR_MESSAGE
+    if not items:
+        return empty_message
+    return None
+
+
+def _user_id(user: Optional[Dict[str, Any]]) -> Optional[int]:
+    return user.get("id") if user else None
+
+
+def _record_coin_query(coin_id: str, symbol: str, data: Optional[Dict[str, Any]]) -> None:
+    increment_coin_query(coin_id, symbol)
+    if data:
+        record_price_snapshot(data)
+
+
+async def handle_command(command: str, args: List[str], chat_id: int, user: Dict[str, Any]) -> str:
+    command = command.lower()
+    print(f"Handling command={command}, args={args}, chat_id={chat_id}")
+
+    try:
+        if command == "/price" and args:
+            symbol = args[0]
+            coin_id = symbol_to_coingecko(symbol)
+            data = get_price(coin_id)
+            if is_rate_limited(data):
+                return RATE_LIMIT_MESSAGE
+            if is_error(data):
+                return SERVICE_ERROR_MESSAGE
+            if not data:
+                return "❌ 未找到该币种，请检查币种符号。"
+
+            _record_coin_query(coin_id, symbol, data)
+            return format_price(symbol, data)
+
+        if command == "/compare" and len(args) >= 2:
+            coin1, coin2 = args[0], args[1]
+            id1 = symbol_to_coingecko(coin1)
+            id2 = symbol_to_coingecko(coin2)
+            prices = get_prices([id1, id2])
+            if is_rate_limited(prices):
+                return RATE_LIMIT_MESSAGE
+            if is_error(prices):
+                return SERVICE_ERROR_MESSAGE
+            data1 = prices.get(id1)
+            data2 = prices.get(id2)
+            if not data1 or not data2:
+                return "❌ 未找到其中一个币种，请检查币种符号。"
+
+            _record_coin_query(id1, coin1, data1)
+            _record_coin_query(id2, coin2, data2)
+            return format_compare(coin1, data1, coin2, data2)
+
+        if command == "/top":
+            markets = get_top_markets(10)
+            error_message = _market_error_message(markets, "❌ 暂时无法获取市值排行，请稍后再试。")
+            if error_message:
+                return error_message
+            record_price_snapshots(market_to_snapshot(market) for market in markets)
+            return format_market_cap(markets)
+
+        if command == "/trending":
+            coins = get_trending(10)
+            error_message = _market_error_message(coins, "❌ 暂时无法获取热门币榜，请稍后再试。")
+            if error_message:
+                return error_message
+            return format_trending(coins)
+
+        if command == "/gainers":
+            markets = get_gainers(10)
+            error_message = _market_error_message(markets, "❌ 暂时无法获取涨幅榜，请稍后再试。")
+            if error_message:
+                return error_message
+            record_price_snapshots(market_to_snapshot(market) for market in markets)
+            return format_movers(markets, "📈 24小时涨幅榜 TOP10")
+
+        if command == "/losers":
+            markets = get_losers(10)
+            error_message = _market_error_message(markets, "❌ 暂时无法获取跌幅榜，请稍后再试。")
+            if error_message:
+                return error_message
+            record_price_snapshots(market_to_snapshot(market) for market in markets)
+            return format_movers(markets, "📉 24小时跌幅榜 TOP10")
+
+        if command == "/help":
+            return format_help()
+
+        return "❌ 未知命令，使用 /help 查看可用指令。"
+    except Exception as exc:
+        print(f"Command handling failed: {command} {exc}")
+        return "❌ 当前服务繁忙，请稍后再试。"
+
+
+async def send_telegram_message(chat_id: int, text: str) -> Dict[str, Any]:
+    if not BOT_TOKEN:
+        print("TELEGRAM_BOT_TOKEN_2 is not configured")
+        return {"ok": False, "error": "missing bot token"}
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "Markdown",
+        "disable_web_page_preview": True,
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, timeout=10)
+            result = response.json()
+            if not result.get("ok"):
+                print(f"Telegram API error: {result}")
+            return result
+    except Exception as exc:
+        print(f"Telegram send failed: {exc}")
+        return {"ok": False, "error": str(exc)}
+
+
+@app.post("/webhook")
+async def webhook(request: Request):
+    try:
+        data = await request.json()
+        message = data.get("message", {})
+        chat_id = message.get("chat", {}).get("id")
+        text = message.get("text", "")
+        user = message.get("from", {})
+
+        if not text or not chat_id:
+            return {"status": "ok"}
+
+        if not text.startswith("/"):
+            return {"status": "ok"}
+
+        parts = text.split()
+        command = parts[0].split("@", 1)[0]
+        args = parts[1:] if len(parts) > 1 else []
+
+        print(f"Received command={command.lower()} chat_id={chat_id}")
+        upsert_user(user)
+        log_command(_user_id(user), command.lower(), args)
+
+        response_text = await handle_command(command, args, chat_id, user)
+        send_result = await send_telegram_message(chat_id, response_text)
+        if not send_result.get("ok"):
+            print(f"Message send failed: {send_result}")
+
+        return {"status": "ok"}
+    except Exception as exc:
+        print(f"Webhook failed: {exc}")
+        return {"status": "error"}
+
+
+@app.get("/")
+async def root():
+    return {"status": "running", "service": "crypto-assistant-bot"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

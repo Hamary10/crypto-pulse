@@ -1,0 +1,41 @@
+name: Crypto Broadcaster Bot
+
+on:
+  schedule:
+    # GitHub Actions cron 使用 UTC；这里表示每个 UTC 小时的 00 分运行一次。
+    # 代码内部使用 Asia/Shanghai 判断，北京时间 00:00 时发送每日榜单。
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    inputs:
+      force_daily_rankings:
+        description: 'Set to 1 to force daily rankings for manual testing'
+        required: false
+        default: '0'
+
+jobs:
+  broadcast:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        cd broadcaster
+        pip install -r requirements.txt
+    
+    - name: Run broadcaster bot
+      env:
+        TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+        TELEGRAM_BOT_TOKEN_1: ${{ secrets.TELEGRAM_BOT_TOKEN_1 }}
+        ASSISTANT_WEBHOOK_URL: ${{ secrets.ASSISTANT_WEBHOOK_URL }}
+        FORCE_DAILY_RANKINGS: ${{ github.event.inputs.force_daily_rankings || '0' }}
+      run: |
+        cd broadcaster
+        python broadcaster_bot.py
