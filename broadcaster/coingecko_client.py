@@ -106,7 +106,7 @@ def get_prices(coin_ids: List[str]) -> Dict[str, Any]:
         "/simple/price",
         {
             "ids": ",".join(missing_ids),
-            "vs_currencies": "usd,cny",
+            "vs_currencies": "usd,cny,mmk",
             "include_market_cap": "true",
             "include_24hr_vol": "true",
             "include_24hr_change": "true",

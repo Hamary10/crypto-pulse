@@ -33,13 +33,14 @@ BEIJING_TZ = pytz.timezone("Asia/Shanghai")
 COINS = [
     {"id": "bitcoin", "symbol": "BTC", "emoji": "₿"},
     {"id": "ethereum", "symbol": "ETH", "emoji": "Ξ"},
+    {"id": "tether", "symbol": "USDT", "emoji": "💵"},
     {"id": "binancecoin", "symbol": "BNB", "emoji": "🔶"},
     {"id": "solana", "symbol": "SOL", "emoji": "◎"},
-    {"id": "cardano", "symbol": "ADA", "emoji": "🎴"},
     {"id": "ripple", "symbol": "XRP", "emoji": "💧"},
     {"id": "dogecoin", "symbol": "DOGE", "emoji": "🐕"},
+    {"id": "cardano", "symbol": "ADA", "emoji": "🎴"},
     {"id": "polkadot", "symbol": "DOT", "emoji": "🔴"},
-    {"id": "matic-network", "symbol": "MATIC", "emoji": "🟣"},
+    {"id": "polygon-ecosystem-token", "symbol": "POL", "emoji": "🟣"},
 ]
 
 
@@ -56,6 +57,8 @@ def send_to_telegram(message: str, label: str) -> bool:
             "disable_web_page_preview": True,
         }
         response = requests.post(url, json=payload, timeout=10)
+        if not response.ok:
+            print(f"Telegram API error ({label}): {response.status_code} {response.text}")
         response.raise_for_status()
         print(f"Sent channel message: {label}")
         return True
@@ -91,6 +94,10 @@ def main() -> None:
     elif is_error(price_data):
         print("CoinGecko unavailable; price broadcast skipped")
     elif price_data:
+        missing_coin_ids = [coin["id"] for coin in COINS if coin["id"] not in price_data]
+        for coin_id in missing_coin_ids:
+            print(f"Missing coin data: {coin_id}")
+
         snapshots = [
             simple_price_to_snapshot(coin["id"], coin["symbol"], price_data[coin["id"]])
             for coin in COINS

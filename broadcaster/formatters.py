@@ -19,35 +19,61 @@ def _fmt_cny(value: Any) -> str:
     return f"¥{float(value):,.2f}"
 
 
+def _fmt_mmk(value: Any) -> str:
+    if value is None:
+        return "N/A"
+    return f"Ks {float(value):,.0f}"
+
+
 def _fmt_percent(value: Any) -> str:
     if value is None:
         return "N/A"
     return f"{float(value):+.2f}%"
 
 
+def _format_usdt_rates(tether_data: Dict[str, Any]) -> List[str]:
+    lines = ["💱 USDT 汇率参考"]
+    if tether_data.get("cny") is not None:
+        lines.append(f"USDT/CNY: {_fmt_cny(tether_data.get('cny'))}")
+    else:
+        print("Missing USDT rate: cny")
+
+    if tether_data.get("usd") is not None:
+        lines.append(f"USDT/USD: ${float(tether_data.get('usd')):,.4f}")
+    else:
+        print("Missing USDT rate: usd")
+
+    if tether_data.get("mmk") is not None:
+        lines.append(f"USDT/MMK: {_fmt_mmk(tether_data.get('mmk'))}")
+    else:
+        print("Missing USDT rate: mmk")
+
+    return lines
+
+
 def format_price_broadcast(coins: List[Dict[str, str]], price_data: Dict[str, Any]) -> str:
-    current_time = datetime.now(BEIJING_TZ).strftime("%Y-%m-%d %H:%M:%S")
-    lines = ["📊 **加密货币行情更新**", f"⏰ 时间: {current_time}", ""]
+    current_time = datetime.now(BEIJING_TZ).strftime("%Y-%m-%d %H:%M")
+    lines = ["📊 加密货币行情更新", ""]
+
+    tether_data = price_data.get("tether", {})
+    if tether_data:
+        lines.extend(_format_usdt_rates(tether_data))
+        lines.append("")
+    else:
+        print("Missing coin data: tether")
+
+    lines.append("💰 主流币价格")
 
     for coin in coins:
         coin_id = coin["id"]
         data = price_data.get(coin_id)
         if not data:
+            print(f"Missing coin data: {coin_id}")
             continue
 
-        change = data.get("usd_24h_change", 0)
-        trend = "📈" if change >= 0 else "📉"
-        lines.extend(
-            [
-                f"{coin['emoji']} **{coin['symbol']}**",
-                f"价格: {_fmt_usd(data.get('usd'))} USD",
-                f"价格: {_fmt_cny(data.get('cny'))} CNY",
-                f"{trend} 24h涨跌: {_fmt_percent(change)}",
-                "",
-            ]
-        )
+        lines.append(f"{coin['symbol']}: {_fmt_cny(data.get('cny'))}")
 
-    lines.extend(["数据源：CoinGecko", "仅供信息参考，非投资建议。"])
+    lines.extend(["", f"⏰ 北京时间: {current_time}", "数据源：CoinGecko", "仅供信息参考，非投资建议。"])
     return "\n".join(lines)
 
 

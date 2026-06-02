@@ -21,6 +21,10 @@
 - 已新增每日跌幅榜 TOP10 推送。
 - 已新增每日热门币榜 TOP10 推送。
 - 每日榜单仅在北京时间 00:00 的定时任务中发送。
+- 已将 USDT 加入主流币价格播报。
+- 已将 MATIC 替换为 POL，CoinGecko ID 使用 `polygon-ecosystem-token`。
+- 已新增 USDT 汇率参考模块，支持 CNY、USD、MMK。
+- 已新增缺失币种日志：`Missing coin data: <coin_id>`。
 - 已记录价格快照到 SQLite。
 - 已通过本地语法检查和最小测试。
 - 当前状态：运行中。
@@ -40,6 +44,7 @@
 - 已增加 429 降级机制：优先返回旧缓存，无缓存时返回友好限流提示。
 - 已优化 `/price` 和 `/compare` 的缓存复用。
 - 已修复 CoinGecko 币名包含特殊字符时 Telegram Markdown 解析失败的问题。
+- 已增强 Bot1 Telegram 发送失败日志，便于定位频道 ID 或 Bot 权限问题。
 - 已记录用户基础信息到 SQLite。
 - 已记录命令使用日志到 SQLite。
 - 已记录币种查询统计到 SQLite。

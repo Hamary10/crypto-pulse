@@ -37,7 +37,7 @@ GET https://api.coingecko.com/api/v3/simple/price
 | 参数 | 说明 |
 |---|---|
 | ids | CoinGecko 币种 ID，例如 `bitcoin` |
-| vs_currencies | 计价货币，例如 `usd,cny` |
+| vs_currencies | 计价货币，例如 `usd,cny,mmk` |
 | include_24hr_change | 是否返回 24 小时涨跌幅 |
 
 示例请求：
@@ -106,8 +106,15 @@ GET https://api.coingecko.com/api/v3/search/trending
 | XRP | ripple |
 | DOGE | dogecoin |
 | DOT | polkadot |
-| MATIC | matic-network |
+| POL | polygon-ecosystem-token |
 | USDT | tether |
+
+Bot1 USDT 汇率模块：
+
+- 使用 `tether` 请求 `usd,cny,mmk`。
+- `USDT/CNY`、`USDT/USD`、`USDT/MMK` 只显示 CoinGecko 实际返回的项目。
+- 如果 `mmk` 或其他汇率缺失，不会导致整条频道播报失败。
+- 缺失项会打印日志，例如 `Missing USDT rate: mmk`。
 
 ## 请求限制
 
