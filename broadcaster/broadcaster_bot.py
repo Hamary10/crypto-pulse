@@ -53,7 +53,6 @@ def send_to_telegram(message: str, label: str) -> bool:
         payload = {
             "chat_id": CHANNEL_ID,
             "text": message,
-            "parse_mode": "Markdown",
             "disable_web_page_preview": True,
         }
         response = requests.post(url, json=payload, timeout=10)

@@ -41,6 +41,20 @@
 
 ### 新增
 
+- 无
+
+### 修复
+
+- 修复 `/top` 等榜单消息因 CoinGecko 币名包含特殊字符导致 Telegram Markdown 解析失败、消息发送失败的问题。
+
+### 优化
+
+- Bot1 和 Bot2 发送 Telegram 消息时不再强制使用 Markdown 解析，提升行情榜单发送稳定性。
+
+## 2026-06-02
+
+### 新增
+
 - CoinGecko 请求支持可选 `CG_DEMO_API_KEY` 环境变量。
 - CoinGecko 请求会在配置 key 后使用 `x-cg-demo-api-key` 请求头。
 - 新增 429 降级机制：优先返回过期旧缓存，无缓存时返回可识别限流状态。

@@ -39,6 +39,7 @@
 - 已支持 `CG_DEMO_API_KEY`，可通过 `x-cg-demo-api-key` 请求头访问 CoinGecko。
 - 已增加 429 降级机制：优先返回旧缓存，无缓存时返回友好限流提示。
 - 已优化 `/price` 和 `/compare` 的缓存复用。
+- 已修复 CoinGecko 币名包含特殊字符时 Telegram Markdown 解析失败的问题。
 - 已记录用户基础信息到 SQLite。
 - 已记录命令使用日志到 SQLite。
 - 已记录币种查询统计到 SQLite。
