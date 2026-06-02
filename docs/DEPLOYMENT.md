@@ -449,6 +449,96 @@ python -c "import sqlite3; db='crypto_pulse.db'; conn=sqlite3.connect(db); cur=c
 - 如果清理后 Bot 报错，先停止继续操作，用备份文件恢复原数据库。
 - 如果不确定线上 Render 是否能直接操作数据库，不要强行清理，把 Render 日志和 `DATABASE_PATH` 配置发给 AI Agent 判断。
 
+## 生成每日运营观察报告
+
+一、我要做什么
+
+生成每日运营观察报告，用来查看总用户数、今日新增用户、今日活跃用户、命令使用和币种关注情况。
+
+二、在哪里操作
+
+Windows 终端，本地项目目录。
+
+三、具体步骤
+
+1. 打开 Windows 终端。
+2. 进入项目目录：
+
+```powershell
+cd D:\TelegramBot\货币通知频道计划
+```
+
+3. 确认数据库文件在本地。默认文件名是 `crypto_pulse.db`。
+4. 如果数据库文件就在项目根目录，运行：
+
+```powershell
+python generate_report.py
+```
+
+5. 如果数据库文件不在项目根目录，先设置数据库路径：
+
+```powershell
+$env:DATABASE_PATH="你的数据库文件完整路径"
+python generate_report.py
+```
+
+6. 打开项目里的 `reports` 文件夹。
+7. 打开当天报告，例如 `daily_report_20260602.md`。
+
+四、怎么判断成功
+
+- 终端显示 `运营观察报告已生成`。
+- 看到 `reports/daily_report_日期.md` 文件。
+- 报告能看到总用户数、今日新增用户数、今日活跃用户数、今日命令调用总数、最常用命令 TOP10、最常查询币种 TOP10。
+- 报告不会显示 Telegram 用户 ID、用户名、first_name 或 last_name。
+
+五、如果失败怎么办
+
+- 如果提示未找到数据库文件，检查 `DATABASE_PATH` 或 `crypto_pulse.db` 是否存在。
+- 如果提示某张表不存在，说明当前数据库没有初始化或还没有对应功能数据。
+- 如果报告里某个指标显示暂无法统计，先确认对应表是否已经存在。
+- 如果生成了报告，不要把 `reports` 文件夹上传到 GitHub。
+- 如果需要分析线上 Render 数据，先确认如何安全取得数据库备份，不要把真实用户数据库提交到 GitHub。
+
+### 运营报告数据库位置说明
+
+一、为什么报告为空
+
+`generate_report.py` 默认读取运行命令所在目录的本地 `crypto_pulse.db`。如果本地没有数据库文件，报告会显示“未找到数据库文件”。这是正常保护逻辑，不是程序错误。
+
+二、数据现在在哪里
+
+- Bot2 的真实用户、命令和币种查询数据目前在 Render 运行环境里的 SQLite 数据库中。
+- Bot1 在 GitHub Actions 中生成的 SQLite 数据属于临时运行产物，不适合作长期统计。
+- 本地电脑只有在手动取得数据库备份后，才会有可供 `generate_report.py` 统计的数据。
+- Render 免费环境的本地 SQLite 不适合长期稳定保存，服务重启、重新部署或实例迁移时可能丢失。
+
+三、我现在应该怎么看运营情况
+
+P0 开放测试阶段先不开发数据库导出功能，先按下面方式观察：
+
+1. 打开 Render。
+2. 进入 `crypto-assistant-bot` 服务。
+3. 点击 Logs。
+4. 观察是否有 `Received command`。
+5. 观察是否有 `SQLite command logged`。
+6. 观察是否有 `SQLite coin query updated`。
+7. 打开 Telegram 群，查看是否有真实用户使用命令。
+
+四、以后什么时候需要升级数据库方案
+
+当出现真实用户并且需要每日稳定统计时，再考虑：
+
+- 管理员专用 `/report`
+- 数据库导出功能
+- 迁移到免费云数据库
+
+五、如果失败怎么办
+
+- 如果本地报告为空，先确认本地是否真的有 `crypto_pulse.db`。
+- 如果 Render Logs 有命令记录但本地报告为空，说明数据在 Render，不在本地。
+- 如果需要正式统计，不要把 Render 数据库提交到 GitHub，先设计安全导出或迁移方案。
+
 ## 部署注意事项
 
 - 不要提交 Telegram Bot Token。

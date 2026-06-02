@@ -62,6 +62,18 @@
 - 可通过 `DATABASE_PATH` 环境变量覆盖。
 - 已支持 `users`、`command_logs`、`coin_query_stats`、`price_snapshots` 四张 P0 表。
 
+### 运营观察报告
+
+- 已新增本地轻量运营观察报告脚本：`generate_report.py`。
+- 默认读取 `crypto_pulse.db`，也支持通过 `DATABASE_PATH` 指定数据库路径。
+- 默认输出到 `reports/daily_report_YYYYMMDD.md`。
+- 报告只显示统计数据，不显示 Telegram 用户 ID、用户名、first_name 或 last_name。
+- `reports/`、`backups/` 和 SQLite 数据库文件已加入 `.gitignore`，默认不提交 GitHub。
+- 如果本地没有 `crypto_pulse.db`，脚本会生成“未找到数据库文件”的友好报告，这不是 bug。
+- 当前真实 Bot2 运营数据在 Render 运行环境里的 SQLite 数据库中，不在本地。
+- Bot1 的 SQLite 数据在 GitHub Actions 临时环境中，不适合作长期运营统计。
+- P0 开放测试阶段暂时不开发数据库导出功能，先通过 Render Logs 和 Telegram 群实际使用情况观察。
+
 ### 频道
 
 - Telegram 频道已创建。
@@ -122,6 +134,7 @@
 - Render 免费实例重启或重新部署时，本地 SQLite 文件可能丢失。
 - Bot1 和 Bot2 当前部署在不同平台，默认不会共享 SQLite 数据库。
 - P0 精简版先满足最小行为记录和功能验证，未来如需要持久化运营数据，再评估免费数据库或 PostgreSQL 迁移。
+- 等出现真实用户后，再评估管理员专用 `/report`、数据库导出或免费云数据库迁移。
 
 ## 验收结果
 

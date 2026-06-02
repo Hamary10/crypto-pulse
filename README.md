@@ -106,6 +106,85 @@ Windows 终端、GitHub、Render、Telegram。
 - 如果 Render 部署失败，打开 Logs，把错误内容发给 AI Agent。
 - 如果 Telegram Bot 没回复，先查看 Render Logs，再检查 Webhook 和环境变量。
 
+## 生成每日运营观察报告
+
+一、我要做什么
+
+生成一份本地运营观察报告，用来查看开放测试后有没有真实用户、哪些命令常用、哪些币种更受关注。
+
+二、在哪里操作
+
+Windows 终端，本地项目目录。
+
+三、具体步骤
+
+1. 打开 Windows 终端。
+2. 进入项目目录：
+
+```powershell
+cd D:\TelegramBot\货币通知频道计划
+```
+
+3. 如果数据库就在项目根目录，文件名是 `crypto_pulse.db`，直接运行：
+
+```powershell
+python generate_report.py
+```
+
+4. 如果数据库在其他位置，先设置数据库路径，例如：
+
+```powershell
+$env:DATABASE_PATH="D:\TelegramBot\货币通知频道计划\crypto_pulse.db"
+python generate_report.py
+```
+
+5. 打开生成的 `reports` 文件夹。
+6. 打开当天报告文件，例如 `daily_report_20260602.md`。
+
+四、怎么判断成功
+
+- 终端显示 `运营观察报告已生成`。
+- 项目目录里出现 `reports` 文件夹。
+- `reports` 文件夹里出现 `daily_report_日期.md`。
+- 报告里只显示统计数据，不显示 Telegram 用户 ID、用户名、first_name 或 last_name。
+
+五、如果失败怎么办
+
+- 如果报告提示未找到数据库文件，检查 `DATABASE_PATH` 是否正确，或者确认 `crypto_pulse.db` 是否存在。
+- 如果报告提示某张表不存在，说明当前数据库还没有对应数据，先让 Bot 正常运行并产生记录。
+- 如果运行命令提示找不到 Python，先确认本机是否安装 Python，并重新打开 Windows 终端。
+- 如果不确定数据库在哪里，不要上传数据库到 GitHub，把当前操作截图或终端提示发给 AI Agent 判断。
+
+### 为什么运营报告为空
+
+一、为什么报告为空
+
+`generate_report.py` 默认读取本地项目目录里的 `crypto_pulse.db`。如果你的电脑本地没有这个数据库文件，脚本会正常生成一份“未找到数据库文件”的友好报告。这不是 bug，说明本地没有可读取的真实运营数据。
+
+二、数据现在在哪里
+
+当前真实 Bot2 数据在 Render 运行环境里的 SQLite 数据库中，不在本地电脑。Bot1 数据在 GitHub Actions 临时运行环境中，每次 workflow 结束后通常不会长期保留，因此不适合作为长期运营统计来源。
+
+三、我现在应该怎么看运营情况
+
+P0 开放测试阶段，先通过 Render Logs 和 Telegram 群实际使用情况观察：
+
+1. 打开 Render。
+2. 进入 `crypto-assistant-bot` 服务。
+3. 点击 Logs。
+4. 查看是否出现 `Received command`、`SQLite command logged`、`SQLite coin query updated`。
+5. 打开 Telegram 群，观察是否有真实用户使用 `/help`、`/price`、`/compare`、`/top` 等命令。
+
+四、以后什么时候需要升级数据库方案
+
+等小范围开放测试出现真实用户后，再考虑升级：
+
+- 管理员专用 `/report`
+- 数据库导出功能
+- 迁移到免费云数据库
+
+当前暂时不开发数据库导出功能，也不要把真实数据库或报告上传到 GitHub。
+
 ## 前置准备
 
 ### 第一步：创建两个Telegram Bot

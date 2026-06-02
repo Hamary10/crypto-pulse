@@ -1,6 +1,10 @@
-﻿__pycache__/
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
-crypto_pulse.db
+*.db
+*.sqlite
+*.sqlite3
+reports/
+backups/
 .env
