@@ -8,6 +8,40 @@
 
 项目处于 P0 精简版验收完成阶段：MVP 已可运行，已补齐用户行为记录、基础数据库、P0 行情榜单、频道自动化内容和最小本地测试。
 
+## 仓库状态
+
+### 当前唯一生产仓库
+
+`crypto-pulse`
+
+说明：
+
+- 当前 Bot1 和 Bot2 的正式开发、部署、维护全部在 `crypto-pulse`。
+- GitHub Actions、Render、文档、数据库规划均以 `crypto-pulse` 为准。
+
+### 历史仓库
+
+`crypto-notification-channel`
+
+说明：
+
+- 属于早期版本项目。
+- 已确认存在旧版 Bot1 分批播报逻辑，频道消息会显示“加密货币行情更新 (1/2)”。
+- 2026-06-03 已手动禁用 GitHub Actions Workflow。
+- 不再作为生产环境使用。
+- 不允许在该仓库继续开发新功能。
+- 保留作为历史备份参考。
+
+### AI Agent 接手规则
+
+每次开始工作前，必须优先确认当前仓库是否为 `crypto-pulse`。
+
+如果发现以下内容，应先确认是否属于历史代码，不得直接修改或部署：
+
+- `crypto-notification-channel`
+- 旧版 broadcaster
+- 旧版 `(1/2)` 播报逻辑
+
 ## 已完成功能
 
 ### Bot1：广播员 Bot

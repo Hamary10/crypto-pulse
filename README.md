@@ -6,6 +6,40 @@
 - **1号Bot（广播员）**：定时推送行情到频道（GitHub Actions）
 - **2号Bot（互动客服）**：处理群组指令查询（Render免费版）
 
+## 仓库状态
+
+### 当前唯一生产仓库
+
+`crypto-pulse`
+
+说明：
+
+- 当前 Bot1 和 Bot2 的正式开发、部署、维护全部在 `crypto-pulse`。
+- GitHub Actions、Render、文档、数据库规划均以 `crypto-pulse` 为准。
+
+### 历史仓库
+
+`crypto-notification-channel`
+
+说明：
+
+- 属于早期版本项目。
+- 已确认存在旧版 Bot1 分批播报逻辑，频道消息会显示“加密货币行情更新 (1/2)”。
+- 2026-06-03 已手动禁用 GitHub Actions Workflow。
+- 不再作为生产环境使用。
+- 不允许在该仓库继续开发新功能。
+- 保留作为历史备份参考。
+
+### AI Agent 接手规则
+
+每次开始工作前，必须优先确认当前仓库是否为 `crypto-pulse`。
+
+如果发现以下内容，应先确认是否属于历史代码，不得直接修改或部署：
+
+- `crypto-notification-channel`
+- 旧版 broadcaster
+- 旧版 `(1/2)` 播报逻辑
+
 ## 小白友好操作规范
 
 项目开发者不是专业程序员。以后任何需要你手动操作的内容，都必须写成一步一步能照做的说明。
