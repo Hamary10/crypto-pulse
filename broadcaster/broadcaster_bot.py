@@ -80,7 +80,8 @@ def ping_assistant_bot() -> None:
 
 
 def should_send_daily_rankings() -> bool:
-    return FORCE_DAILY_RANKINGS or datetime.now(BEIJING_TZ).hour == 0
+    now = datetime.now(BEIJING_TZ)
+    return FORCE_DAILY_RANKINGS or (now.hour == 8 and now.minute < 30)
 
 
 def main() -> None:
@@ -141,7 +142,7 @@ def main() -> None:
         else:
             print("No trending data received")
     else:
-        print("Daily rankings skipped; they are sent at Beijing 00:00")
+        print("Daily rankings skipped; they are sent at Beijing 08:17")
 
     ping_assistant_bot()
     print("Broadcaster finished")

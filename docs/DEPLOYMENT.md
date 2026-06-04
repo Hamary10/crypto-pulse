@@ -16,16 +16,16 @@
 用途：
 
 - 定时运行 Bot1。
-- 每小时获取 CoinGecko 行情。
+- 每 2 小时获取 CoinGecko 行情。
 - 推送行情到 Telegram 频道。
 - 可顺带唤醒 Render 上的 Bot2。
 
 时间说明：
 
 - GitHub Actions cron 使用 UTC 时间，不使用北京时间。
-- 当前 `cron: '0 * * * *'` 表示每个 UTC 小时的 00 分运行。
-- 北京时间为 UTC+8，因此北京时间 00:00 对应 UTC 前一天 16:00。
-- 当前代码使用 `Asia/Shanghai` 判断本地小时数，所以每日榜单会在北京时间 00:00 那次运行发送。
+- 当前 `cron: '17 */2 * * *'` 表示每 2 个 UTC 小时的第 17 分运行，避开 GitHub Actions 整点高负载。
+- 北京时间为 UTC+8，因此北京时间 08:17 对应 UTC 00:17。
+- 当前代码使用 `Asia/Shanghai` 判断本地时间，每日榜单在北京时间 08:00-08:29 的运行窗口发送，正常约为 08:17。
 - `FORCE_DAILY_RANKINGS=1` 可用于手动测试每日榜单。
 
 配置文件：
@@ -61,8 +61,8 @@ python broadcaster_bot.py
 
 说明：
 
-- GitHub Actions 默认每小时运行一次价格播报。
-- 每日涨幅榜、跌幅榜、热门币榜只在北京时间 00:00 的运行中发送。
+- GitHub Actions 默认每 2 小时运行一次价格播报。
+- 每日涨幅榜、跌幅榜、热门币榜只在北京时间 08:17 左右发送一次。
 - GitHub Actions 中生成的 SQLite 文件是临时运行产物，不作为长期持久化数据。
 - Bot1 默认数据库不与 Render 上的 Bot2 共享。
 

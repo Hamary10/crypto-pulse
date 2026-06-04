@@ -2,9 +2,9 @@ name: Crypto Broadcaster Bot
 
 on:
   schedule:
-    # GitHub Actions cron 使用 UTC；这里表示每个 UTC 小时的 00 分运行一次。
-    # 代码内部使用 Asia/Shanghai 判断，北京时间 00:00 时发送每日榜单。
-    - cron: '0 * * * *'
+    # GitHub Actions cron 使用 UTC；这里表示每 2 小时在第 17 分运行一次，避开整点高负载。
+    # 北京时间 08:17 对应 UTC 00:17；代码内部使用 Asia/Shanghai 判断每日榜单时间。
+    - cron: '17 */2 * * *'
   workflow_dispatch:
     inputs:
       force_daily_rankings:
