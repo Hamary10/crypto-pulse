@@ -7,4 +7,12 @@ services:
     envVars:
       - key: TELEGRAM_BOT_TOKEN_2
         sync: false
+      - key: INTERNAL_BROADCAST_SECRET
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN_1
+        sync: false
+      - key: TELEGRAM_CHANNEL_ID
+        sync: false
+      - key: CG_DEMO_API_KEY
+        sync: false
     plan: free

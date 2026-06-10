@@ -20,11 +20,29 @@ class FormatterTests(unittest.TestCase):
         self.tmp.close()
         os.environ["DATABASE_PATH"] = self.tmp.name
 
-        for name in ["database", "coingecko_client", "formatters", "assistant_bot"]:
+        for name in [
+            "database",
+            "coingecko_client",
+            "formatters",
+            "assistant_bot",
+            "broadcaster",
+            "broadcaster.broadcaster_bot",
+            "broadcaster.coingecko_client",
+            "broadcaster.database",
+            "broadcaster.formatters",
+        ]:
             if name in sys.modules:
                 del sys.modules[name]
 
         fake_httpx = types.SimpleNamespace(AsyncClient=object)
+        fake_pytz = types.SimpleNamespace(timezone=lambda name: name)
+        fake_requests = types.SimpleNamespace(get=lambda *args, **kwargs: None, post=lambda *args, **kwargs: None)
+
+        class FakeHTTPException(Exception):
+            def __init__(self, status_code, detail):
+                super().__init__(detail)
+                self.status_code = status_code
+                self.detail = detail
 
         class FakeFastAPI:
             def post(self, _path):
@@ -33,9 +51,15 @@ class FormatterTests(unittest.TestCase):
             def get(self, _path):
                 return lambda func: func
 
-        fake_fastapi = types.SimpleNamespace(FastAPI=lambda: FakeFastAPI(), Request=object)
-        sys.modules.setdefault("httpx", fake_httpx)
-        sys.modules.setdefault("fastapi", fake_fastapi)
+        fake_fastapi = types.SimpleNamespace(
+            FastAPI=lambda: FakeFastAPI(),
+            HTTPException=FakeHTTPException,
+            Request=object,
+        )
+        sys.modules["httpx"] = fake_httpx
+        sys.modules["fastapi"] = fake_fastapi
+        sys.modules["pytz"] = fake_pytz
+        sys.modules["requests"] = fake_requests
 
         self.formatters = importlib.import_module("formatters")
         self.assistant_bot = importlib.import_module("assistant_bot")

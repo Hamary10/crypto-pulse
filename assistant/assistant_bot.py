@@ -4,11 +4,21 @@ Crypto Pulse - 2号Bot（互动客服）
 功能：处理群组指令、记录用户行为、提供 P0 行情榜单
 """
 
+import asyncio
+import hmac
 import os
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from broadcaster.broadcaster_bot import run_broadcast
 
 from coingecko_client import (
     get_gainers,
@@ -41,9 +51,11 @@ from formatters import (
 
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN_2")
+INTERNAL_BROADCAST_SECRET = os.getenv("INTERNAL_BROADCAST_SECRET")
 PORT = int(os.getenv("PORT", 10000))
 
 app = FastAPI()
+_broadcast_lock = asyncio.Lock()
 init_database()
 print("Assistant bot started; database initialized")
 
@@ -216,6 +228,30 @@ async def webhook(request: Request):
     except Exception as exc:
         print(f"Webhook failed: {exc}")
         return {"status": "error"}
+
+
+@app.post("/internal/broadcast/run")
+async def internal_broadcast_run(request: Request, dry_run: bool = True):
+    provided_secret = request.headers.get("X-Internal-Broadcast-Secret", "")
+    if not INTERNAL_BROADCAST_SECRET or not hmac.compare_digest(
+        provided_secret,
+        INTERNAL_BROADCAST_SECRET,
+    ):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if not dry_run:
+        raise HTTPException(status_code=403, detail="Send mode is disabled in phase 1")
+
+    if _broadcast_lock.locked():
+        raise HTTPException(status_code=409, detail="Broadcast is already running")
+
+    async with _broadcast_lock:
+        return await asyncio.to_thread(
+            run_broadcast,
+            send_messages=False,
+            dry_run=True,
+            trigger_source="render_http",
+        )
 
 
 @app.get("/")

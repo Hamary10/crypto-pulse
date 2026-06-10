@@ -70,16 +70,24 @@ class BroadcasterScheduleTests(unittest.TestCase):
         ):
             self.assertTrue(self.broadcaster_bot.should_send_daily_rankings())
 
-    def test_daily_rankings_send_at_0829(self):
-        FakeDateTime.current = datetime(2026, 6, 4, 8, 29)
+    def test_daily_rankings_send_at_0831(self):
+        FakeDateTime.current = datetime(2026, 6, 4, 8, 31)
 
         with patch.object(self.broadcaster_bot, "FORCE_DAILY_RANKINGS", False), patch.object(
             self.broadcaster_bot, "datetime", FakeDateTime
         ):
             self.assertTrue(self.broadcaster_bot.should_send_daily_rankings())
 
-    def test_daily_rankings_do_not_send_at_0830(self):
-        FakeDateTime.current = datetime(2026, 6, 4, 8, 30)
+    def test_daily_rankings_send_at_0959(self):
+        FakeDateTime.current = datetime(2026, 6, 4, 9, 59)
+
+        with patch.object(self.broadcaster_bot, "FORCE_DAILY_RANKINGS", False), patch.object(
+            self.broadcaster_bot, "datetime", FakeDateTime
+        ):
+            self.assertTrue(self.broadcaster_bot.should_send_daily_rankings())
+
+    def test_daily_rankings_do_not_send_at_1000(self):
+        FakeDateTime.current = datetime(2026, 6, 4, 10, 0)
 
         with patch.object(self.broadcaster_bot, "FORCE_DAILY_RANKINGS", False), patch.object(
             self.broadcaster_bot, "datetime", FakeDateTime
@@ -93,6 +101,84 @@ class BroadcasterScheduleTests(unittest.TestCase):
             self.broadcaster_bot, "datetime", FakeDateTime
         ):
             self.assertTrue(self.broadcaster_bot.should_send_daily_rankings())
+
+    def test_message_types_at_schedule_boundaries(self):
+        prices = {coin["id"]: {"usd": 1, "cny": 1} for coin in self.broadcaster_bot.COINS}
+        markets = [{"id": "bitcoin", "symbol": "btc"}]
+        trending = [{"name": "Bitcoin", "symbol": "btc"}]
+        daily_labels = ["price_broadcast", "daily_gainers", "daily_losers", "daily_trending"]
+
+        cases = [
+            (datetime(2026, 6, 4, 8, 17), daily_labels),
+            (datetime(2026, 6, 4, 8, 31), daily_labels),
+            (datetime(2026, 6, 4, 9, 59), daily_labels),
+            (datetime(2026, 6, 4, 10, 0), ["price_broadcast"]),
+        ]
+
+        for current, expected in cases:
+            with self.subTest(current=current):
+                FakeDateTime.current = current
+                labels = []
+                with patch.object(self.broadcaster_bot, "FORCE_DAILY_RANKINGS", False), patch.object(
+                    self.broadcaster_bot, "datetime", FakeDateTime
+                ), patch.object(self.broadcaster_bot, "init_database"), patch.object(
+                    self.broadcaster_bot, "record_price_snapshots"
+                ), patch.object(self.broadcaster_bot, "get_prices", return_value=prices), patch.object(
+                    self.broadcaster_bot, "get_gainers", return_value=markets
+                ), patch.object(self.broadcaster_bot, "get_losers", return_value=markets), patch.object(
+                    self.broadcaster_bot, "get_trending", return_value=trending
+                ), patch.object(self.broadcaster_bot, "format_price_broadcast", return_value="price"), patch.object(
+                    self.broadcaster_bot, "format_movers", return_value="movers"
+                ), patch.object(self.broadcaster_bot, "format_trending", return_value="trending"), patch.object(
+                    self.broadcaster_bot,
+                    "send_to_telegram",
+                    side_effect=lambda _message, label: labels.append(label) or True,
+                ), patch.object(self.broadcaster_bot, "ping_assistant_bot"):
+                    self.broadcaster_bot.main()
+
+                self.assertEqual(expected, labels)
+
+    def test_dry_run_returns_labels_without_sending_or_writing_database(self):
+        prices = {coin["id"]: {"usd": 1, "cny": 1} for coin in self.broadcaster_bot.COINS}
+        markets = [{"id": "bitcoin", "symbol": "btc"}]
+        trending = [{"name": "Bitcoin", "symbol": "btc"}]
+
+        with patch.object(self.broadcaster_bot, "FORCE_DAILY_RANKINGS", True), patch.object(
+            self.broadcaster_bot, "datetime", FakeDateTime
+        ), patch.object(
+            self.broadcaster_bot, "get_prices", return_value=prices
+        ), patch.object(self.broadcaster_bot, "get_gainers", return_value=markets), patch.object(
+            self.broadcaster_bot, "get_losers", return_value=markets
+        ), patch.object(self.broadcaster_bot, "get_trending", return_value=trending), patch.object(
+            self.broadcaster_bot, "format_price_broadcast", return_value="price"
+        ), patch.object(self.broadcaster_bot, "format_movers", return_value="movers"), patch.object(
+            self.broadcaster_bot, "format_trending", return_value="trending"
+        ), patch.object(self.broadcaster_bot, "send_to_telegram") as send_mock, patch.object(
+            self.broadcaster_bot, "init_database"
+        ) as init_database_mock, patch.object(
+            self.broadcaster_bot, "record_price_snapshots"
+        ) as record_mock, patch.object(
+            self.broadcaster_bot, "ping_assistant_bot"
+        ) as ping_mock:
+            result = self.broadcaster_bot.run_broadcast(
+                send_messages=False,
+                dry_run=True,
+                trigger_source="test",
+            )
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["dry_run"])
+        self.assertEqual("test", result["trigger_source"])
+        self.assertEqual(
+            ["price_broadcast", "daily_gainers", "daily_losers", "daily_trending"],
+            result["message_labels"],
+        )
+        self.assertEqual(4, result["planned_count"])
+        self.assertEqual(0, result["sent_count"])
+        send_mock.assert_not_called()
+        init_database_mock.assert_not_called()
+        record_mock.assert_not_called()
+        ping_mock.assert_not_called()
 
 
 if __name__ == "__main__":
