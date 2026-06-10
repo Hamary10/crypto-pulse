@@ -43,6 +43,7 @@ class InternalBroadcastTests(unittest.TestCase):
         self.tmp.close()
         os.environ["DATABASE_PATH"] = self.tmp.name
         os.environ["INTERNAL_BROADCAST_SECRET"] = "test-secret"
+        os.environ.pop("ALLOW_REAL_BROADCAST", None)
         self.original_sys_path = list(sys.path)
         sys.path.insert(0, str(ASSISTANT_DIR))
         sys.path.insert(0, str(PROJECT_ROOT))
@@ -80,6 +81,7 @@ class InternalBroadcastTests(unittest.TestCase):
         sys.modules["requests"] = fake_requests
 
         self.assistant_bot = importlib.import_module("assistant_bot")
+        self.broadcaster_bot = sys.modules["broadcaster.broadcaster_bot"]
 
     def tearDown(self):
         sys.path = self.original_sys_path
@@ -90,6 +92,7 @@ class InternalBroadcastTests(unittest.TestCase):
             else:
                 sys.modules[name] = original
         os.environ.pop("INTERNAL_BROADCAST_SECRET", None)
+        os.environ.pop("ALLOW_REAL_BROADCAST", None)
         try:
             os.unlink(self.tmp.name)
         except OSError:
@@ -122,11 +125,56 @@ class InternalBroadcastTests(unittest.TestCase):
             trigger_source="render_http",
         )
 
-    def test_send_mode_is_rejected_in_phase_one(self):
+    def test_send_mode_is_rejected_when_real_broadcast_is_disabled(self):
         request = FakeRequest({"X-Internal-Broadcast-Secret": "test-secret"})
         with self.assertRaises(FakeHTTPException) as context:
             self.run_endpoint(request, dry_run=False)
         self.assertEqual(403, context.exception.status_code)
+
+    def test_real_send_path_requires_explicit_environment_gate(self):
+        prices = {coin["id"]: {"usd": 1, "cny": 1} for coin in self.broadcaster_bot.COINS}
+        markets = [{"id": "bitcoin", "symbol": "btc"}]
+        trending = [{"name": "Bitcoin", "symbol": "btc"}]
+        request = FakeRequest({"X-Internal-Broadcast-Secret": "test-secret"})
+
+        with patch.dict(os.environ, {"ALLOW_REAL_BROADCAST": "true"}), patch.object(
+            self.broadcaster_bot, "should_send_daily_rankings", return_value=True
+        ), patch.object(self.broadcaster_bot, "init_database"), patch.object(
+            self.broadcaster_bot, "record_price_snapshots"
+        ), patch.object(self.broadcaster_bot, "get_prices", return_value=prices), patch.object(
+            self.broadcaster_bot, "get_gainers", return_value=markets
+        ), patch.object(self.broadcaster_bot, "get_losers", return_value=markets), patch.object(
+            self.broadcaster_bot, "get_trending", return_value=trending
+        ), patch.object(self.broadcaster_bot, "format_price_broadcast", return_value="price"), patch.object(
+            self.broadcaster_bot, "format_movers", return_value="movers"
+        ), patch.object(self.broadcaster_bot, "format_trending", return_value="trending"), patch.object(
+            self.broadcaster_bot, "send_to_telegram", return_value=True
+        ) as send_mock, patch.object(self.broadcaster_bot, "ping_assistant_bot"):
+            result = self.run_endpoint(request, dry_run=False)
+
+        self.assertTrue(result["success"])
+        self.assertFalse(result["dry_run"])
+        self.assertEqual(4, result["planned_count"])
+        self.assertEqual(4, result["sent_count"])
+        self.assertEqual(4, send_mock.call_count)
+
+    def test_omitted_dry_run_defaults_to_safe_mode(self):
+        expected = {"success": True, "dry_run": True, "sent_count": 0}
+        request = FakeRequest({"X-Internal-Broadcast-Secret": "test-secret"})
+
+        with patch.dict(os.environ, {"ALLOW_REAL_BROADCAST": "true"}), patch.object(
+            self.assistant_bot,
+            "run_broadcast",
+            return_value=expected,
+        ) as mocked:
+            result = self.run_endpoint(request)
+
+        self.assertEqual(expected, result)
+        mocked.assert_called_once_with(
+            send_messages=False,
+            dry_run=True,
+            trigger_source="render_http",
+        )
 
     def test_busy_lock_returns_conflict(self):
         request = FakeRequest({"X-Internal-Broadcast-Secret": "test-secret"})

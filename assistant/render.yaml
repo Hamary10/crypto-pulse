@@ -9,6 +9,8 @@ services:
         sync: false
       - key: INTERNAL_BROADCAST_SECRET
         sync: false
+      - key: ALLOW_REAL_BROADCAST
+        value: "false"
       - key: TELEGRAM_BOT_TOKEN_1
         sync: false
       - key: TELEGRAM_CHANNEL_ID
