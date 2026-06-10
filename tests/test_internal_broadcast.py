@@ -136,8 +136,22 @@ class InternalBroadcastTests(unittest.TestCase):
         markets = [{"id": "bitcoin", "symbol": "btc"}]
         trending = [{"name": "Bitcoin", "symbol": "btc"}]
         request = FakeRequest({"X-Internal-Broadcast-Secret": "test-secret"})
+        context = {
+            "now": types.SimpleNamespace(hour=8),
+            "current_time_local": "2026-06-10T08:17:00+08:00",
+            "allowed_window": "even hours, minute 10-45 Asia/Shanghai",
+            "within_allowed_window": True,
+            "slots": {
+                "price_broadcast": "price:2026-06-10:08",
+                "daily_gainers": "daily_gainers:2026-06-10",
+                "daily_losers": "daily_losers:2026-06-10",
+                "daily_trending": "daily_trending:2026-06-10",
+            },
+        }
 
         with patch.dict(os.environ, {"ALLOW_REAL_BROADCAST": "true"}), patch.object(
+            self.broadcaster_bot, "get_broadcast_context", return_value=context
+        ), patch.object(
             self.broadcaster_bot, "should_send_daily_rankings", return_value=True
         ), patch.object(self.broadcaster_bot, "init_database"), patch.object(
             self.broadcaster_bot, "record_price_snapshots"

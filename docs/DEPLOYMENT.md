@@ -8,22 +8,20 @@
 
 当前采用双 Bot 架构：
 
-- Bot1 广播员 Bot：GitHub Actions 定时运行。
+- Bot1 广播员 Bot：由 Render 内部接口触发；GitHub Actions 仅保留手动备用。
 - Bot2 客服 Bot：Render Web Service 常驻运行，使用 FastAPI Webhook。
 
 ## GitHub Actions
 
 用途：
 
-- 定时运行 Bot1。
-- 每 2 小时获取 CoinGecko 行情。
-- 推送行情到 Telegram 频道。
-- 可顺带唤醒 Render 上的 Bot2。
+- 仅通过 `workflow_dispatch` 手动运行 Bot1 作为备用。
+- 自动 `schedule` 已停用。
 
 时间说明：
 
 - GitHub Actions cron 使用 UTC 时间，不使用北京时间。
-- 当前 `cron: '17 */2 * * *'` 表示每 2 个 UTC 小时的第 17 分运行，避开 GitHub Actions 整点高负载。
+- 原 `cron: '17 */2 * * *'` 已停用，仅保留注释参考。
 - 北京时间为 UTC+8，因此北京时间 08:17 对应 UTC 00:17。
 - 当前代码使用 `Asia/Shanghai` 判断本地时间，每日榜单在北京时间 08:00-08:29 的运行窗口发送，正常约为 08:17。
 - `FORCE_DAILY_RANKINGS=1` 可用于手动测试每日榜单。
@@ -73,6 +71,17 @@ python broadcaster_bot.py
 - 运行 Bot2 客服 Bot。
 - 接收 Telegram Webhook 请求。
 - 响应群组命令。
+- 通过受保护的内部接口触发 Bot1 广播。
+
+### Render 内部广播 P0 防重复
+
+- 内部接口由服务端按 `Asia/Shanghai` 自行计算 time slot，不信任外部调用方传入的 slot。
+- 价格播报每两个小时一个 slot，例如 `price:2026-06-10:14`。
+- 每日榜单每个标签每天一个 slot，例如 `daily_gainers:2026-06-10`。
+- 真实发送仅允许在偶数小时的 `:10-:45`；dry-run 不受此窗口限制。
+- dry-run 不发送、不占用 slot。只有 Telegram 明确成功后才标记 `sent`。
+- Telegram 超时会标记为 `uncertain`，同一进程内不会自动重试该标签。
+- P0 状态只保存在单个 Render 进程内存中。Render 休眠、重启或重新部署后状态会丢失，不能替代持久化幂等存储。
 
 运行目录：
 

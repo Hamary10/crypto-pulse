@@ -6,6 +6,7 @@ Crypto Pulse - 1号Bot（广播员）
 
 import os
 from datetime import datetime
+from typing import Dict
 
 import pytz
 import requests
@@ -43,6 +44,10 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN_1")
 ASSISTANT_WEBHOOK_URL = os.getenv("ASSISTANT_WEBHOOK_URL")
 FORCE_DAILY_RANKINGS = os.getenv("FORCE_DAILY_RANKINGS", "0") == "1"
 BEIJING_TZ = pytz.timezone("Asia/Shanghai")
+ALLOWED_WINDOW = "even hours, minute 10-45 Asia/Shanghai"
+
+# P0 protection only: this state is lost whenever the Render process restarts.
+_delivery_states: Dict[str, str] = {}
 
 COINS = [
     {"id": "bitcoin", "symbol": "BTC", "emoji": "₿"},
@@ -58,7 +63,7 @@ COINS = [
 ]
 
 
-def send_to_telegram(message: str, label: str) -> bool:
+def send_to_telegram(message: str, label: str):
     if not BOT_TOKEN or not CHANNEL_ID:
         print("Telegram channel id or bot token is not configured")
         return False
@@ -76,6 +81,9 @@ def send_to_telegram(message: str, label: str) -> bool:
         response.raise_for_status()
         print(f"Sent channel message: {label}")
         return True
+    except requests.Timeout as exc:
+        print(f"Telegram send uncertain ({label}): {exc}")
+        return "uncertain"
     except Exception as exc:
         print(f"Failed to send channel message ({label}): {exc}")
         return False
@@ -93,28 +101,70 @@ def ping_assistant_bot() -> None:
         print(f"Assistant bot ping failed: {exc}")
 
 
-def should_send_daily_rankings() -> bool:
-    now = datetime.now(BEIJING_TZ)
+def should_send_daily_rankings(now=None) -> bool:
+    now = now or datetime.now(BEIJING_TZ)
     return FORCE_DAILY_RANKINGS or now.hour in (8, 9)
+
+
+def get_broadcast_context(now=None) -> dict:
+    now = now or datetime.now(BEIJING_TZ)
+    price_hour = now.hour if now.hour % 2 == 0 else now.hour - 1
+    date = now.strftime("%Y-%m-%d")
+    return {
+        "now": now,
+        "current_time_local": now.isoformat(),
+        "allowed_window": ALLOWED_WINDOW,
+        "within_allowed_window": now.hour % 2 == 0 and 10 <= now.minute <= 45,
+        "slots": {
+            "price_broadcast": f"price:{date}:{price_hour:02d}",
+            "daily_gainers": f"daily_gainers:{date}",
+            "daily_losers": f"daily_losers:{date}",
+            "daily_trending": f"daily_trending:{date}",
+        },
+    }
+
+
+def _delivery_key(slot: str, label: str) -> str:
+    return f"{slot}|{label}"
+
+
+def _send_status(message: str, label: str) -> str:
+    status = send_to_telegram(message, label)
+    if status == "uncertain":
+        return "uncertain"
+    return "sent" if status else "failed"
 
 
 def run_broadcast(
     send_messages: bool = True,
     dry_run: bool = False,
     trigger_source: str = "manual",
+    current_time=None,
 ) -> dict:
     print("Broadcaster started")
     should_send = send_messages and not dry_run
+    context = get_broadcast_context(current_time)
     result = {
         "success": True,
         "dry_run": dry_run,
         "trigger_source": trigger_source,
+        "current_time_local": context["current_time_local"],
+        "allowed_window": context["allowed_window"],
+        "slot": context["slots"]["price_broadcast"],
+        "slots": context["slots"],
         "message_labels": [],
         "planned_count": 0,
         "sent_count": 0,
+        "duplicate_skipped": [],
         "skipped": [],
+        "uncertain": [],
         "errors": [],
     }
+
+    if should_send and not context["within_allowed_window"]:
+        result["skipped"].append("outside_allowed_window")
+        print("Real broadcast skipped; outside allowed window")
+        return result
 
     if not dry_run:
         init_database()
@@ -123,8 +173,23 @@ def run_broadcast(
         result["message_labels"].append(label)
         result["planned_count"] += 1
         if should_send:
-            if send_to_telegram(message, label):
+            slot = context["slots"][label]
+            key = _delivery_key(slot, label)
+            state = _delivery_states.get(key)
+            if state == "sent":
+                result["duplicate_skipped"].append({"slot": slot, "message_label": label})
+                return
+            if state == "uncertain":
+                result["uncertain"].append({"slot": slot, "message_label": label})
+                return
+
+            status = _send_status(message, label)
+            if status == "sent":
+                _delivery_states[key] = "sent"
                 result["sent_count"] += 1
+            elif status == "uncertain":
+                _delivery_states[key] = "uncertain"
+                result["uncertain"].append({"slot": slot, "message_label": label})
             else:
                 result["errors"].append(f"Failed to send {label}")
 
@@ -153,7 +218,7 @@ def run_broadcast(
         print("No price data received")
         result["skipped"].append("price_broadcast: no_data")
 
-    if should_send_daily_rankings():
+    if should_send_daily_rankings(context["now"]):
         gainers = get_gainers(10)
         if gainers and is_rate_limited(gainers[0]):
             print("CoinGecko rate limited; daily gainers skipped")
@@ -202,7 +267,7 @@ def run_broadcast(
 
     if should_send:
         ping_assistant_bot()
-    result["success"] = not result["errors"]
+    result["success"] = not result["errors"] and not result["uncertain"]
     print("Broadcaster finished")
     return result
 
