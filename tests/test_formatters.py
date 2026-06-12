@@ -114,6 +114,32 @@ class FormatterTests(unittest.TestCase):
         self.assertIn("BTC 价格", text)
         self.assertIn("CoinGecko", text)
 
+    def test_price_pol_and_matic_aliases_use_same_coin(self):
+        data = {
+            "coin_id": "polygon-ecosystem-token",
+            "symbol": "POL",
+            "price_usd": 0.2,
+            "price_cny": 1.4,
+            "market_cap": 100,
+            "volume_24h": 10,
+            "price_change_percentage_24h": 1.5,
+        }
+
+        for symbol in ["POL", "pol", "MATIC", "matic", "POL（原"]:
+            with self.subTest(symbol=symbol), patch.object(
+                self.assistant_bot,
+                "get_price",
+                return_value=data,
+            ) as mocked:
+                text = asyncio.run(
+                    self.assistant_bot.handle_command(
+                        "/price", [symbol], 1, {"id": 123}
+                    )
+                )
+
+            mocked.assert_called_once_with("polygon-ecosystem-token")
+            self.assertIn("POL（原 MATIC） 价格", text)
+
     def test_compare_command_logic_uses_single_price_batch(self):
         prices = {
             "bitcoin": {

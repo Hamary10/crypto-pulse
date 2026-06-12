@@ -61,6 +61,8 @@ print("Assistant bot started; database initialized")
 
 RATE_LIMIT_MESSAGE = "❌ CoinGecko 当前请求过于频繁，请稍后重试。"
 SERVICE_ERROR_MESSAGE = "❌ 行情服务暂时不可用，请稍后重试。"
+POL_COIN_ID = "polygon-ecosystem-token"
+POL_DISPLAY_NAME = "POL（原 MATIC）"
 
 
 def _real_broadcast_enabled() -> bool:
@@ -99,6 +101,12 @@ def _record_coin_query(coin_id: str, symbol: str, data: Optional[Dict[str, Any]]
         record_price_snapshot(data)
 
 
+def _display_symbol(symbol: str, coin_id: str) -> str:
+    if coin_id == POL_COIN_ID:
+        return POL_DISPLAY_NAME
+    return symbol
+
+
 async def handle_command(command: str, args: List[str], chat_id: int, user: Dict[str, Any]) -> str:
     command = command.lower()
     print(f"Handling command={command}, args={args}, chat_id={chat_id}")
@@ -116,7 +124,7 @@ async def handle_command(command: str, args: List[str], chat_id: int, user: Dict
                 return "❌ 未找到该币种，请检查币种符号。"
 
             _record_coin_query(coin_id, symbol, data)
-            return format_price(symbol, data)
+            return format_price(_display_symbol(symbol, coin_id), data)
 
         if command == "/compare" and len(args) >= 2:
             coin1, coin2 = args[0], args[1]

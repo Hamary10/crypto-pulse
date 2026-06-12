@@ -20,13 +20,19 @@ SYMBOL_TO_ID = {
     "xrp": "ripple",
     "doge": "dogecoin",
     "dot": "polkadot",
-    "matic": "matic-network",
+    "pol": "polygon-ecosystem-token",
+    "matic": "polygon-ecosystem-token",
+    "polygon": "polygon-ecosystem-token",
     "usdt": "tether",
 }
 
 
 def symbol_to_coingecko(symbol: str) -> str:
-    return SYMBOL_TO_ID.get(symbol.lower(), symbol.lower())
+    normalized = symbol.strip().lower()
+    for separator in ("（", "("):
+        normalized = normalized.split(separator, 1)[0]
+    normalized = normalized.strip()
+    return SYMBOL_TO_ID.get(normalized, normalized)
 
 
 def _get_cached(key: str) -> Optional[Any]:

@@ -103,6 +103,24 @@ class CoinGeckoClientTests(unittest.TestCase):
         self.assertEqual(price["price_usd"], 1)
         self.assertEqual(calls, ["bitcoin,ethereum"])
 
+    def test_pol_and_matic_aliases_use_polygon_ecosystem_token(self):
+        client = self.import_client()
+
+        for symbol in ["POL", "pol", "MATIC", "matic", "Polygon"]:
+            with self.subTest(symbol=symbol):
+                self.assertEqual(
+                    client.symbol_to_coingecko(symbol),
+                    "polygon-ecosystem-token",
+                )
+
+    def test_pol_alias_ignores_parenthetical_description(self):
+        client = self.import_client()
+
+        self.assertEqual(
+            client.symbol_to_coingecko("POL（原 MATIC）"),
+            "polygon-ecosystem-token",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
