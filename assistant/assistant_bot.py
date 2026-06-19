@@ -57,6 +57,15 @@ ALLOWED_GROUP_IDS_ENV = "ALLOWED_TELEGRAM_GROUP_IDS"
 BOT_USERNAME_ENV = "TELEGRAM_BOT_USERNAME_2"
 DEFAULT_BOT_USERNAME = "CryptoService2_bot"
 GROUP_CHAT_TYPES = {"group", "supergroup"}
+GROUPGUARD_SHORT_COMMANDS = {
+    "/gid",
+    "/gst",
+    "/grules",
+    "/gabout",
+    "/gdisc",
+    "/ghelp",
+    "/grep",
+}
 
 app = FastAPI()
 _broadcast_lock = asyncio.Lock()
@@ -268,6 +277,10 @@ async def webhook(request: Request):
             return {"status": "ok"}
 
         command = command_token.partition("@")[0]
+        if "@" not in command_token and command.lower() in GROUPGUARD_SHORT_COMMANDS:
+            print("Ignored GroupGuard short command")
+            return {"status": "ok"}
+
         args = parts[1:] if len(parts) > 1 else []
 
         print(f"Received command={command.lower()} chat_id={chat_id}")

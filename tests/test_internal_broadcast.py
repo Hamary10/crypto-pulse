@@ -329,6 +329,7 @@ class InternalBroadcastTests(unittest.TestCase):
     def test_commands_for_other_bot_are_silently_ignored(self):
         commands = [
             "/id@CryptoPulseGuardBot",
+            "/status@CryptoPulseGuardBot",
             "/guard_status@CryptoPulseGuardBot",
             "/rules@CryptoPulseGuardBot",
             "/abc@CryptoPulseGuardBot",
@@ -349,6 +350,46 @@ class InternalBroadcastTests(unittest.TestCase):
                         "ALLOWED_TELEGRAM_GROUP_IDS": "-100123",
                         "TELEGRAM_BOT_USERNAME_2": "CryptoService2_bot",
                     },
+                ), patch.object(self.assistant_bot, "upsert_user") as user_mock, patch.object(
+                    self.assistant_bot, "log_command"
+                ) as log_mock, patch.object(
+                    self.assistant_bot, "handle_command"
+                ) as command_mock, patch.object(
+                    self.assistant_bot, "send_telegram_message"
+                ) as send_mock:
+                    result = asyncio.run(
+                        self.assistant_bot.webhook(FakeRequest(payload=payload))
+                    )
+
+                self.assertEqual({"status": "ok"}, result)
+                user_mock.assert_not_called()
+                log_mock.assert_not_called()
+                command_mock.assert_not_called()
+                send_mock.assert_not_called()
+
+    def test_groupguard_short_commands_are_silently_ignored(self):
+        commands = [
+            "/gid",
+            "/gst",
+            "/grules",
+            "/gabout",
+            "/gdisc",
+            "/ghelp",
+            "/grep",
+        ]
+
+        for text in commands:
+            with self.subTest(text=text):
+                payload = {
+                    "message": {
+                        "chat": {"id": -100123, "type": "supergroup"},
+                        "text": text,
+                        "from": {"id": 123},
+                    }
+                }
+                with patch.dict(
+                    os.environ,
+                    {"ALLOWED_TELEGRAM_GROUP_IDS": "-100123"},
                 ), patch.object(self.assistant_bot, "upsert_user") as user_mock, patch.object(
                     self.assistant_bot, "log_command"
                 ) as log_mock, patch.object(

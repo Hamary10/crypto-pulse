@@ -27,6 +27,7 @@
 ### 新增
 
 - 新增 Bot2 命令目标判断，支持识别 Telegram `/command@botusername` 格式。
+- 新增 GroupGuard 专属短命令静默忽略列表：`/gid`、`/gst`、`/grules`、`/gabout`、`/gdisc`、`/ghelp`、`/grep`。
 
 ### 修复
 
@@ -37,6 +38,7 @@
 - 发给其他 Bot 的命令会在用户记录、命令日志、行情查询和消息回复之前静默忽略。
 - Bot2 username 支持通过可选环境变量 `TELEGRAM_BOT_USERNAME_2` 配置，未配置时使用当前生产用户名 `CryptoService2_bot`。
 - 部署文档补充 `ALLOWED_TELEGRAM_GROUP_IDS` 的 Render 配置、验证与故障排查步骤，不记录真实群 ID。
+- 避免 GroupGuard 未带 `@username` 的专属短命令触发 Bot2 未知命令回复。
 
 ## 2026-06-12
 

@@ -117,6 +117,7 @@ Rejected direction：
 - `/command@其他Bot` 会在写入用户/命令日志和执行查询之前静默忽略。
 - `/command` 与 `/command@Bot2Username` 继续由 Bot2 正常处理；未知命令仍返回原有提示。
 - Bot2 username 可通过 `TELEGRAM_BOT_USERNAME_2` 配置，默认值为当前生产用户名 `CryptoService2_bot`。
+- 已为 GroupGuard 专属短命令增加静默忽略列表：`/gid`、`/gst`、`/grules`、`/gabout`、`/gdisc`、`/ghelp`、`/grep`。
 
 ### SQLite 数据库
 
