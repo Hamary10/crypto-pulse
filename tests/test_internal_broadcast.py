@@ -93,6 +93,8 @@ class InternalBroadcastTests(unittest.TestCase):
                 sys.modules[name] = original
         os.environ.pop("INTERNAL_BROADCAST_SECRET", None)
         os.environ.pop("ALLOW_REAL_BROADCAST", None)
+        os.environ.pop("ALLOWED_TELEGRAM_GROUP_IDS", None)
+        os.environ.pop("TELEGRAM_BOT_USERNAME_2", None)
         try:
             os.unlink(self.tmp.name)
         except OSError:
@@ -206,6 +208,214 @@ class InternalBroadcastTests(unittest.TestCase):
             result = asyncio.run(self.assistant_bot.webhook(FakeRequest(payload={})))
         self.assertEqual({"status": "ok"}, result)
         send_mock.assert_not_called()
+
+    def test_allowed_group_command_is_processed(self):
+        payload = {
+            "message": {
+                "chat": {"id": -100123, "type": "supergroup"},
+                "text": "/help",
+                "from": {"id": 123},
+            }
+        }
+        with patch.dict(
+            os.environ,
+            {"ALLOWED_TELEGRAM_GROUP_IDS": "-100123"},
+        ), patch.object(self.assistant_bot, "upsert_user") as user_mock, patch.object(
+            self.assistant_bot, "log_command"
+        ) as log_mock, patch.object(
+            self.assistant_bot, "handle_command", return_value="help"
+        ) as command_mock, patch.object(
+            self.assistant_bot,
+            "send_telegram_message",
+            return_value={"ok": True},
+        ) as send_mock:
+            result = asyncio.run(self.assistant_bot.webhook(FakeRequest(payload=payload)))
+
+        self.assertEqual({"status": "ok"}, result)
+        user_mock.assert_called_once()
+        log_mock.assert_called_once()
+        command_mock.assert_called_once()
+        send_mock.assert_called_once_with(-100123, "help")
+
+    def test_unauthorized_group_command_is_silently_ignored(self):
+        payload = {
+            "message": {
+                "chat": {"id": -100999, "type": "supergroup"},
+                "text": "/price btc",
+                "from": {"id": 123},
+            }
+        }
+        with patch.dict(
+            os.environ,
+            {"ALLOWED_TELEGRAM_GROUP_IDS": "-100123"},
+        ), patch.object(self.assistant_bot, "upsert_user") as user_mock, patch.object(
+            self.assistant_bot, "log_command"
+        ) as log_mock, patch.object(
+            self.assistant_bot, "handle_command"
+        ) as command_mock, patch.object(
+            self.assistant_bot, "send_telegram_message"
+        ) as send_mock:
+            result = asyncio.run(self.assistant_bot.webhook(FakeRequest(payload=payload)))
+
+        self.assertEqual({"status": "ok"}, result)
+        user_mock.assert_not_called()
+        log_mock.assert_not_called()
+        command_mock.assert_not_called()
+        send_mock.assert_not_called()
+
+    def test_private_command_keeps_existing_behavior(self):
+        payload = {
+            "message": {
+                "chat": {"id": 123, "type": "private"},
+                "text": "/help",
+                "from": {"id": 123},
+            }
+        }
+        with patch.dict(
+            os.environ,
+            {"ALLOWED_TELEGRAM_GROUP_IDS": "-100999"},
+        ), patch.object(
+            self.assistant_bot, "handle_command", return_value="help"
+        ) as command_mock, patch.object(
+            self.assistant_bot,
+            "send_telegram_message",
+            return_value={"ok": True},
+        ):
+            result = asyncio.run(self.assistant_bot.webhook(FakeRequest(payload=payload)))
+
+        self.assertEqual({"status": "ok"}, result)
+        command_mock.assert_called_once()
+
+    def test_supported_commands_are_routed_normally(self):
+        cases = [
+            ("/price BTC", "/price", ["BTC"]),
+            ("/top", "/top", []),
+            ("/help", "/help", []),
+        ]
+
+        for text, expected_command, expected_args in cases:
+            with self.subTest(text=text):
+                payload = {
+                    "message": {
+                        "chat": {"id": -100123, "type": "supergroup"},
+                        "text": text,
+                        "from": {"id": 123},
+                    }
+                }
+                with patch.dict(
+                    os.environ,
+                    {"ALLOWED_TELEGRAM_GROUP_IDS": "-100123"},
+                ), patch.object(
+                    self.assistant_bot,
+                    "handle_command",
+                    return_value="response",
+                ) as command_mock, patch.object(
+                    self.assistant_bot,
+                    "send_telegram_message",
+                    return_value={"ok": True},
+                ):
+                    result = asyncio.run(
+                        self.assistant_bot.webhook(FakeRequest(payload=payload))
+                    )
+
+                self.assertEqual({"status": "ok"}, result)
+                command_mock.assert_called_once_with(
+                    expected_command,
+                    expected_args,
+                    -100123,
+                    {"id": 123},
+                )
+
+    def test_commands_for_other_bot_are_silently_ignored(self):
+        commands = [
+            "/id@CryptoPulseGuardBot",
+            "/guard_status@CryptoPulseGuardBot",
+            "/rules@CryptoPulseGuardBot",
+            "/abc@CryptoPulseGuardBot",
+        ]
+
+        for text in commands:
+            with self.subTest(text=text):
+                payload = {
+                    "message": {
+                        "chat": {"id": -100123, "type": "supergroup"},
+                        "text": text,
+                        "from": {"id": 123},
+                    }
+                }
+                with patch.dict(
+                    os.environ,
+                    {
+                        "ALLOWED_TELEGRAM_GROUP_IDS": "-100123",
+                        "TELEGRAM_BOT_USERNAME_2": "CryptoService2_bot",
+                    },
+                ), patch.object(self.assistant_bot, "upsert_user") as user_mock, patch.object(
+                    self.assistant_bot, "log_command"
+                ) as log_mock, patch.object(
+                    self.assistant_bot, "handle_command"
+                ) as command_mock, patch.object(
+                    self.assistant_bot, "send_telegram_message"
+                ) as send_mock:
+                    result = asyncio.run(
+                        self.assistant_bot.webhook(FakeRequest(payload=payload))
+                    )
+
+                self.assertEqual({"status": "ok"}, result)
+                user_mock.assert_not_called()
+                log_mock.assert_not_called()
+                command_mock.assert_not_called()
+                send_mock.assert_not_called()
+
+    def test_unknown_command_without_target_returns_unknown_message(self):
+        payload = {
+            "message": {
+                "chat": {"id": -100123, "type": "supergroup"},
+                "text": "/abc",
+                "from": {"id": 123},
+            }
+        }
+        with patch.dict(
+            os.environ,
+            {"ALLOWED_TELEGRAM_GROUP_IDS": "-100123"},
+        ), patch.object(
+            self.assistant_bot,
+            "send_telegram_message",
+            return_value={"ok": True},
+        ) as send_mock:
+            result = asyncio.run(self.assistant_bot.webhook(FakeRequest(payload=payload)))
+
+        self.assertEqual({"status": "ok"}, result)
+        send_mock.assert_called_once_with(
+            -100123,
+            "❌ 未知命令，使用 /help 查看可用指令。",
+        )
+
+    def test_unknown_command_targeted_to_this_bot_returns_unknown_message(self):
+        payload = {
+            "message": {
+                "chat": {"id": -100123, "type": "supergroup"},
+                "text": "/abc@Bot2Username",
+                "from": {"id": 123},
+            }
+        }
+        with patch.dict(
+            os.environ,
+            {
+                "ALLOWED_TELEGRAM_GROUP_IDS": "-100123",
+                "TELEGRAM_BOT_USERNAME_2": "Bot2Username",
+            },
+        ), patch.object(
+            self.assistant_bot,
+            "send_telegram_message",
+            return_value={"ok": True},
+        ) as send_mock:
+            result = asyncio.run(self.assistant_bot.webhook(FakeRequest(payload=payload)))
+
+        self.assertEqual({"status": "ok"}, result)
+        send_mock.assert_called_once_with(
+            -100123,
+            "❌ 未知命令，使用 /help 查看可用指令。",
+        )
 
 
 if __name__ == "__main__":

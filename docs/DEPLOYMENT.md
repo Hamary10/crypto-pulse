@@ -106,12 +106,56 @@ python assistant_bot.py
 | PORT | Render 自动分配端口，代码默认 10000 |
 | DATABASE_PATH | 可选，SQLite 数据库路径，默认 `crypto_pulse.db` |
 | CG_DEMO_API_KEY | 可选，CoinGecko Demo API Key，用于降低 429 限流风险 |
+| ALLOWED_TELEGRAM_GROUP_IDS | Bot2 允许响应的 Telegram 群 Chat ID；多个群使用英文逗号分隔 |
+
+说明：
+
+- `ALLOWED_TELEGRAM_GROUP_IDS` 未配置时，Bot2 会静默忽略所有群组和超级群组命令，私聊维持原有行为。
+- 不要把真实群 Chat ID 写入代码、GitHub 文档或测试；真实值只保存在 Render Environment。
+- Bot2 command target 判断使用 username `CryptoService2_bot`，不使用群内显示名 `Crypto Service`。
+- `TELEGRAM_BOT_USERNAME_2` 是可选覆盖项；当前 username 未变时不需要新增。
 
 持久化说明：
 
 - Render 免费实例上的本地 SQLite 文件不应视为稳定长期存储。
 - 服务重启、重新部署或实例迁移时，本地 SQLite 文件可能丢失。
 - Bot2 默认数据库不与 GitHub Actions 上的 Bot1 共享。
+
+### 配置 Bot2 允许群列表
+
+一、我要做什么
+
+只允许指定的 Crypto Pulse Telegram 群使用 Bot2 命令。
+
+二、在哪里操作
+
+Render 控制台。
+
+三、具体步骤
+
+1. 打开 Render。
+2. 进入 `crypto-assistant-bot` 服务。
+3. 点击 Environment。
+4. 点击 Add Environment Variable。
+5. Key 填 `ALLOWED_TELEGRAM_GROUP_IDS`。
+6. Value 填真实 Crypto Pulse 群 Chat ID，例如 `<真实 Crypto Pulse 群 Chat ID>`。
+7. 如果以后允许多个群，使用英文逗号分隔多个 Chat ID。
+8. 点击 Save。
+9. 等待 Render 自动重新部署，或在代码 push 后等待最新 commit 自动部署。
+10. 部署完成后，在允许群测试 `/help` 和 `/price BTC`。
+
+四、怎么判断成功
+
+- 允许群中的 Bot2 命令正常回复。
+- 其他群中的 Bot2 命令被静默忽略。
+- Render Logs 不会显示未允许群的正常命令处理和查询日志。
+
+五、如果失败怎么办
+
+- 如果允许群没有回复，检查 Chat ID 是否包含负号，以及超级群 ID 是否以 `-100` 开头。
+- 如果配置多个群，确认使用英文逗号，且没有输入中文逗号。
+- 如果 Render 尚未使用最新代码，打开 Deploys 确认最新 commit 已部署成功。
+- 不要把真实群 ID 提交到 GitHub；需要排查时只提供脱敏值。
 
 ### 配置 CoinGecko Demo API Key
 

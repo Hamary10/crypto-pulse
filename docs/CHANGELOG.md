@@ -22,6 +22,22 @@
 
 没有内容的分类可以写“无”。
 
+## 2026-06-19
+
+### 新增
+
+- 新增 Bot2 命令目标判断，支持识别 Telegram `/command@botusername` 格式。
+
+### 修复
+
+- 修复 Bot2 在同群多 Bot 场景中对 `/id@CryptoPulseGuardBot` 等发给其他 Bot 的命令误回复“未知命令”的问题。
+
+### 优化
+
+- 发给其他 Bot 的命令会在用户记录、命令日志、行情查询和消息回复之前静默忽略。
+- Bot2 username 支持通过可选环境变量 `TELEGRAM_BOT_USERNAME_2` 配置，未配置时使用当前生产用户名 `CryptoService2_bot`。
+- 部署文档补充 `ALLOWED_TELEGRAM_GROUP_IDS` 的 Render 配置、验证与故障排查步骤，不记录真实群 ID。
+
 ## 2026-06-12
 
 ### 新增

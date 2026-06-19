@@ -87,6 +87,8 @@ Crypto Pulse 目标是建立一个 Telegram 加密货币社区生态，围绕数
 - 当前命令：`/price`、`/compare`、`/help`。
 - 数据源：CoinGecko API。
 - 当前状态：运行中。
+- 同群多 Bot 命令隔离：Bot2 会识别 `/command@botusername` 的目标；发给其他 Bot 的命令会静默忽略。
+- Bot2 username 通过可选环境变量 `TELEGRAM_BOT_USERNAME_2` 识别，未配置时默认使用当前生产用户名 `CryptoService2_bot`。
 
 ### 频道
 

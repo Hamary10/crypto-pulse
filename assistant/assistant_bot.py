@@ -53,6 +53,10 @@ from formatters import (
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN_2")
 INTERNAL_BROADCAST_SECRET = os.getenv("INTERNAL_BROADCAST_SECRET")
 PORT = int(os.getenv("PORT", 10000))
+ALLOWED_GROUP_IDS_ENV = "ALLOWED_TELEGRAM_GROUP_IDS"
+BOT_USERNAME_ENV = "TELEGRAM_BOT_USERNAME_2"
+DEFAULT_BOT_USERNAME = "CryptoService2_bot"
+GROUP_CHAT_TYPES = {"group", "supergroup"}
 
 app = FastAPI()
 _broadcast_lock = asyncio.Lock()
@@ -93,6 +97,35 @@ def _market_error_message(items: List[Dict[str, Any]], empty_message: str) -> Op
 
 def _user_id(user: Optional[Dict[str, Any]]) -> Optional[int]:
     return user.get("id") if user else None
+
+
+def _allowed_group_ids() -> set[int]:
+    raw_ids = os.getenv(ALLOWED_GROUP_IDS_ENV, "")
+    allowed_ids = set()
+    for raw_id in raw_ids.split(","):
+        raw_id = raw_id.strip()
+        if not raw_id:
+            continue
+        try:
+            allowed_ids.add(int(raw_id))
+        except ValueError:
+            print(f"Ignoring invalid {ALLOWED_GROUP_IDS_ENV} entry")
+    return allowed_ids
+
+
+def _is_chat_allowed(chat: Dict[str, Any]) -> bool:
+    if chat.get("type") not in GROUP_CHAT_TYPES:
+        return True
+    return chat.get("id") in _allowed_group_ids()
+
+
+def _command_targets_this_bot(command_token: str) -> bool:
+    _, separator, target = command_token.partition("@")
+    if not separator or not target:
+        return True
+
+    bot_username = os.getenv(BOT_USERNAME_ENV, DEFAULT_BOT_USERNAME).strip().lstrip("@")
+    return bool(bot_username) and target.casefold() == bot_username.casefold()
 
 
 def _record_coin_query(coin_id: str, symbol: str, data: Optional[Dict[str, Any]]) -> None:
@@ -213,7 +246,8 @@ async def webhook(request: Request):
     try:
         data = await request.json()
         message = data.get("message", {})
-        chat_id = message.get("chat", {}).get("id")
+        chat = message.get("chat", {})
+        chat_id = chat.get("id")
         text = message.get("text", "")
         user = message.get("from", {})
 
@@ -223,8 +257,17 @@ async def webhook(request: Request):
         if not text.startswith("/"):
             return {"status": "ok"}
 
+        if not _is_chat_allowed(chat):
+            print("Ignored command from unauthorized Telegram group")
+            return {"status": "ok"}
+
         parts = text.split()
-        command = parts[0].split("@", 1)[0]
+        command_token = parts[0]
+        if not _command_targets_this_bot(command_token):
+            print("Ignored command addressed to another Telegram bot")
+            return {"status": "ok"}
+
+        command = command_token.partition("@")[0]
         args = parts[1:] if len(parts) > 1 else []
 
         print(f"Received command={command.lower()} chat_id={chat_id}")
