@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
@@ -130,7 +130,48 @@ def get_prices(coin_ids: List[str]) -> Dict[str, Any]:
     return result
 
 
-def get_markets(limit: int = 100) -> List[Dict[str, Any]]:
+def get_global_market_data() -> Dict[str, Any]:
+    data = _get("/global", {}, "global_market")
+    if is_rate_limited(data):
+        return {"_status": "rate_limited"}
+    if is_error(data):
+        return {"_status": "error"}
+    if not isinstance(data, dict):
+        return {}
+    market_data = data.get("data")
+    return market_data if isinstance(market_data, dict) else {}
+
+
+def get_hourly_markets(coin_ids: List[str]) -> List[Dict[str, Any]]:
+    unique_ids = sorted(set(coin_ids))
+    if not unique_ids:
+        return []
+
+    cache_key = f"hourly_markets:{','.join(unique_ids)}"
+    data = _get(
+        "/coins/markets",
+        {
+            "vs_currency": "cny",
+            "ids": ",".join(unique_ids),
+            "order": "market_cap_desc",
+            "per_page": len(unique_ids),
+            "page": 1,
+            "sparkline": "false",
+            "price_change_percentage": "1h",
+        },
+        cache_key,
+    )
+    if is_rate_limited(data):
+        return [{"_status": "rate_limited"}]
+    if is_error(data):
+        return [{"_status": "error"}]
+    return data if isinstance(data, list) else []
+
+
+def get_markets(limit: int = 100, price_change_period: str = "24h") -> List[Dict[str, Any]]:
+    if price_change_period not in {"24h", "7d"}:
+        raise ValueError("price_change_period must be '24h' or '7d'")
+
     data = _get(
         "/coins/markets",
         {
@@ -139,9 +180,9 @@ def get_markets(limit: int = 100) -> List[Dict[str, Any]]:
             "per_page": limit,
             "page": 1,
             "sparkline": "false",
-            "price_change_percentage": "24h",
+            "price_change_percentage": price_change_period,
         },
-        f"markets:{limit}",
+        f"markets:{limit}:{price_change_period}",
     )
     if is_rate_limited(data):
         return [{"_status": "rate_limited"}]
@@ -164,6 +205,18 @@ def get_losers(limit: int = 10) -> List[Dict[str, Any]]:
         return markets
     markets = [m for m in markets if m.get("price_change_percentage_24h") is not None]
     return sorted(markets, key=lambda m: m.get("price_change_percentage_24h", 0))[:limit]
+
+
+def get_weekly_movers(limit: int = 3) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    markets = get_markets(100, "7d")
+    if markets and (is_rate_limited(markets[0]) or is_error(markets[0])):
+        return markets, markets
+
+    field = "price_change_percentage_7d_in_currency"
+    markets = [market for market in markets if market.get(field) is not None]
+    gainers = sorted(markets, key=lambda market: market.get(field, 0), reverse=True)[:limit]
+    losers = sorted(markets, key=lambda market: market.get(field, 0))[:limit]
+    return gainers, losers
 
 
 def get_trending(limit: int = 10) -> List[Dict[str, Any]]:

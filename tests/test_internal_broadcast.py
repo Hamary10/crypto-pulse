@@ -5,6 +5,7 @@ import sys
 import tempfile
 import types
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -139,40 +140,35 @@ class InternalBroadcastTests(unittest.TestCase):
         trending = [{"name": "Bitcoin", "symbol": "btc"}]
         request = FakeRequest({"X-Internal-Broadcast-Secret": "test-secret"})
         context = {
-            "now": types.SimpleNamespace(hour=8),
+            "now": datetime(2026, 6, 10, 8, 17),
             "current_time_local": "2026-06-10T08:17:00+08:00",
-            "allowed_window": "even hours, minute 10-45 Asia/Shanghai",
+            "allowed_window": "scheduled hours 00/04/08/12/16/20, minute 10-45 Asia/Shanghai",
+            "content_type": "morning_market_brief",
+            "silent": False,
             "within_allowed_window": True,
-            "slots": {
-                "price_broadcast": "price:2026-06-10:08",
-                "daily_gainers": "daily_gainers:2026-06-10",
-                "daily_losers": "daily_losers:2026-06-10",
-                "daily_trending": "daily_trending:2026-06-10",
-            },
+            "slot": "morning_market_brief:2026-06-10:08",
+            "slots": {"morning_market_brief": "morning_market_brief:2026-06-10:08"},
         }
 
         with patch.dict(os.environ, {"ALLOW_REAL_BROADCAST": "true"}), patch.object(
             self.broadcaster_bot, "get_broadcast_context", return_value=context
-        ), patch.object(
-            self.broadcaster_bot, "should_send_daily_rankings", return_value=True
         ), patch.object(self.broadcaster_bot, "init_database"), patch.object(
             self.broadcaster_bot, "record_price_snapshots"
         ), patch.object(self.broadcaster_bot, "get_prices", return_value=prices), patch.object(
             self.broadcaster_bot, "get_gainers", return_value=markets
         ), patch.object(self.broadcaster_bot, "get_losers", return_value=markets), patch.object(
             self.broadcaster_bot, "get_trending", return_value=trending
-        ), patch.object(self.broadcaster_bot, "format_price_broadcast", return_value="price"), patch.object(
-            self.broadcaster_bot, "format_movers", return_value="movers"
-        ), patch.object(self.broadcaster_bot, "format_trending", return_value="trending"), patch.object(
+        ), patch.object(self.broadcaster_bot, "format_morning_brief", return_value="morning"), patch.object(
             self.broadcaster_bot, "send_to_telegram", return_value=True
         ) as send_mock, patch.object(self.broadcaster_bot, "ping_assistant_bot"):
             result = self.run_endpoint(request, dry_run=False)
 
         self.assertTrue(result["success"])
         self.assertFalse(result["dry_run"])
-        self.assertEqual(4, result["planned_count"])
-        self.assertEqual(4, result["sent_count"])
-        self.assertEqual(4, send_mock.call_count)
+        self.assertEqual(["morning_market_brief"], result["message_labels"])
+        self.assertEqual(1, result["planned_count"])
+        self.assertEqual(1, result["sent_count"])
+        self.assertEqual(1, send_mock.call_count)
 
     def test_omitted_dry_run_defaults_to_safe_mode(self):
         expected = {"success": True, "dry_run": True, "sent_count": 0}

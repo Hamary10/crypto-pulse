@@ -1,9 +1,9 @@
 name: Crypto Broadcaster Bot
 
 on:
-  # Automatic schedule disabled; keep the old cron documented for reference only.
-  # GitHub Actions cron 使用 UTC；原计划每 2 小时在第 17 分运行一次，现已停用。
-  # cron: '17 */2 * * *'
+  # Automatic schedule remains disabled; production trigger changes are manual deployment work.
+  # 新四小时排期如改用 GitHub Actions，对应 UTC cron 为下行；这里只记录，不启用。
+  # cron: '17 */4 * * *'
   workflow_dispatch:
     inputs:
       force_daily_rankings:
